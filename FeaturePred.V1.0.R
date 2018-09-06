@@ -107,10 +107,10 @@ sink()
 
 # Run PLINK to extract intersecting SNPs
 if(!is.na(opt$PLINK_prefix)){
-	system(paste0(opt$plink,' --bfile ', opt$PLINK_prefix,' --make-bed --extract ',opt$output,'/intersect.snplist --out ',opt$output,'/intersect_target --memory ', floor(opt$memory*.9)),ignore.stdout=T, ignore.stderr=T)
+	system(paste0(opt$plink,' --bfile ', opt$PLINK_prefix,' --make-bed --extract ',opt$output,'/intersect.snplist --out ',opt$output,'/intersect_target --memory ', floor(opt$memory*.8)),ignore.stdout=T, ignore.stderr=T)
 } else {
-	for(i in 1:22){
-		system(paste0(opt$plink,' --bfile ', opt$PLINK_prefix_chr,i,' --make-bed --extract ',opt$output,'/intersect.snplist --out ',opt$output,'/intersect_target.',i,' --memory ', floor(opt$memory*.9)),ignore.stdout=T, ignore.stderr=T)
+	tmp<-foreach(i=1:22, .combine=c) %dopar% {
+		system(paste0(opt$plink,' --bfile ', opt$PLINK_prefix_chr,i,' --make-bed --extract ',opt$output,'/intersect.snplist --out ',opt$output,'/intersect_target.',i,' --memory ', floor((opt$memory*0.8)/opt$n_cores+2)),ignore.stdout=T, ignore.stderr=T)
 	}
 }
 
@@ -147,10 +147,10 @@ if(dim(mismatch)[1] != 0){
 	
 	# Run PLINK to flip mismatch alleles.
 	if(!is.na(opt$PLINK_prefix)){
-		system(paste0(opt$plink,' --bfile ', PLINK_prefix_new,' --make-bed --flip ',opt$output,'/mismatch.snplist --out ',opt$output,'/intersect_flipped_target --memory ', floor(opt$memory*.9)),ignore.stdout=T, ignore.stderr=T)
+		system(paste0(opt$plink,' --bfile ', PLINK_prefix_new,' --make-bed --flip ',opt$output,'/mismatch.snplist --out ',opt$output,'/intersect_flipped_target --memory ', floor(opt$memory*.8)),ignore.stdout=T, ignore.stderr=T)
 	} else {
-		for(i in 1:22){
-			system(paste0(opt$plink,' --bfile ', PLINK_prefix_new,'.',i,' --make-bed --flip ',opt$output,'/mismatch.snplist --out ',opt$output,'/intersect_flipped_target.',i,' --memory ', floor(opt$memory*.9)),ignore.stdout=T, ignore.stderr=T)
+		tmp<-foreach(i=1:22, .combine=c) %dopar% {
+			system(paste0(opt$plink,' --bfile ', PLINK_prefix_new,'.',i,' --make-bed --flip ',opt$output,'/mismatch.snplist --out ',opt$output,'/intersect_flipped_target.',i,' --memory ', floor((opt$memory*0.8)/opt$n_cores+2)),ignore.stdout=T, ignore.stderr=T)
 		}
 	}
 	

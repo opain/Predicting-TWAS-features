@@ -152,14 +152,14 @@ Rscript FeaturePred.V1.0.R \
 ##### Running in parallel on cluster:
 
 ```r
-qsub -cwd -b y -l h_vmem=50G,mem_free=50G -e /dev/null -o /dev/null Rscript FeaturePred.V1.0.R \
+qsub -cwd -b y -l h_vmem=50G,mem_free=50G Rscript FeaturePred.V1.0.R \
 	--PLINK_prefix_chr fusion_twas-master/LDREF/1000G.EUR. \
 	--weights test_data/CMC_weights_mini.pos \
 	--weights_dir test_data/CMC_weights_mini \
 	--ref_ld_chr fusion_twas-master/LDREF/1000G.EUR. \
 	--make_score_script fusion_twas-master/utils/make_score.R \
 	--plink ./plink2 \
-	--n_cores 5 \
+	--n_cores 6 \
 	--memory 50000 \
 	--output demo
 ```
