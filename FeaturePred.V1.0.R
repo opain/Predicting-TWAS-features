@@ -22,6 +22,10 @@ make_option("--memory", action="store", default=2000, type='numeric',
 		help="RAM available in MB [required]"),
 make_option("--plink", action="store", default='NA', type='character',
 		help="Path to PLINK software [required]"),
+make_option("--save_score", action="store", default='F', type='logical',
+		help="Save SCORE files [required]"),
+make_option("--save_profile", action="store", default='F', type='logical',
+		help="Save output files for each feature [required]"),
 make_option("--output", action="store", default=NA, type='character',
 		help="Name of output directory [required]")
 )
@@ -72,7 +76,7 @@ temp = list.files(path=ref_ld_chr_dir, pattern=paste0(ref_ld_chr_files,'*.bim'))
 
 Ref<-do.call(rbind, lapply(paste0(ref_ld_chr_dir,temp), function(x) data.frame(fread(x))))
 
-# Read in the SNPs in CLOZUK
+# Read in the SNPs in target sample
 if(!is.na(opt$PLINK_prefix)){
 	Target<-data.frame(fread(paste(opt$PLINK_prefix,'.bim',sep='')))
 }
@@ -80,7 +84,7 @@ if(!is.na(opt$PLINK_prefix)){
 if(!is.na(opt$PLINK_prefix_chr)){
 	PLINK_prefix_chr_files<-sub('.*/', '', opt$PLINK_prefix_chr)
 	PLINK_prefix_chr_dir<-sub(PLINK_prefix_chr_files, '', opt$PLINK_prefix_chr)
-	temp = list.files(path=PLINK_prefix_chr_dir, pattern=paste0(PLINK_prefix_chr_files,'*.bim'))
+	temp = list.files(path=PLINK_prefix_chr_dir, pattern=paste0(PLINK_prefix_chr_files,'.*.bim'))
 	Target<-do.call(rbind, lapply(paste0(ref_ld_chr_dir,temp), function(x) data.frame(fread(x))))
 }
 
@@ -102,14 +106,20 @@ cat('Extracting intersect from target sample...',sep='')
 sink()
 
 # Run PLINK to extract intersecting SNPs
-system(paste0(opt$plink,' --bfile ', opt$PLINK_prefix,' --make-bed --extract ',opt$output,'/intersect.snplist --out ',opt$output,'/intersect_target --memory ', floor(opt$memory*.9)),ignore.stdout=T, ignore.stderr=T)
+if(!is.na(opt$PLINK_prefix)){
+	system(paste0(opt$plink,' --bfile ', opt$PLINK_prefix,' --make-bed --extract ',opt$output,'/intersect.snplist --out ',opt$output,'/intersect_target --memory ', floor(opt$memory*.9)),ignore.stdout=T, ignore.stderr=T)
+} else {
+	for(i in 1:22){
+		system(paste0(opt$plink,' --bfile ', opt$PLINK_prefix_chr,i,' --make-bed --extract ',opt$output,'/intersect.snplist --out ',opt$output,'/intersect_target.',i,' --memory ', floor(opt$memory*.9)),ignore.stdout=T, ignore.stderr=T)
+	}
+}
 
 sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
 cat('Done!\n',sep='')
 sink()
 
-# Create new opt$PLINK_prefix_new variable for the intersect files.
-opt$PLINK_prefix_new<-paste0(opt$output,'/intersect_target')
+# Create new PLINK_prefix_new variable for the intersect files.
+PLINK_prefix_new<-paste0(opt$output,'/intersect_target')
 
 ######################################
 # Flip variants in target to match the FUSION 1KG reference
@@ -136,37 +146,51 @@ if(dim(mismatch)[1] != 0){
 	sink()
 	
 	# Run PLINK to flip mismatch alleles.
-	system(paste0(opt$plink,' --bfile ', opt$PLINK_prefix_new,' --make-bed --flip ',opt$output,'/mismatch.snplist --out ',opt$output,'/intersect_flipped_target --memory ', floor(opt$memory*.9)),ignore.stdout=T, ignore.stderr=T)
+	if(!is.na(opt$PLINK_prefix)){
+		system(paste0(opt$plink,' --bfile ', PLINK_prefix_new,' --make-bed --flip ',opt$output,'/mismatch.snplist --out ',opt$output,'/intersect_flipped_target --memory ', floor(opt$memory*.9)),ignore.stdout=T, ignore.stderr=T)
+	} else {
+		for(i in 1:22){
+			system(paste0(opt$plink,' --bfile ', PLINK_prefix_new,'.',i,' --make-bed --flip ',opt$output,'/mismatch.snplist --out ',opt$output,'/intersect_flipped_target.',i,' --memory ', floor(opt$memory*.9)),ignore.stdout=T, ignore.stderr=T)
+		}
+	}
 	
 	sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
 	cat('Done!\n',sep='')
 	sink()
 	
 	# Delete intersect file
-	system(paste0('rm ',opt$PLINK_prefix_new,'.bed'))
-	system(paste0('rm ',opt$PLINK_prefix_new,'.bim'))
-	system(paste0('rm ',opt$PLINK_prefix_new,'.fam'))
+	if(!is.na(opt$PLINK_prefix)){
+		system(paste0('rm ',PLINK_prefix_new,'.bed'))
+		system(paste0('rm ',PLINK_prefix_new,'.bim'))
+		system(paste0('rm ',PLINK_prefix_new,'.fam'))
+	} else {
+		for(i in 1:22){
+			system(paste0('rm ',PLINK_prefix_new,'.',i,'.bed'))
+			system(paste0('rm ',PLINK_prefix_new,'.',i,'.bim'))
+			system(paste0('rm ',PLINK_prefix_new,'.',i,'.fam'))
+		}
+	}
 	
-	# Reassign opt$PLINK_prefix_new to the flipped files.
-	opt$PLINK_prefix_new<-paste0(opt$output,'/intersect_flipped_target')
+	# Reassign PLINK_prefix_new to the flipped files.
+	PLINK_prefix_new<-paste0(opt$output,'/intersect_flipped_target')
 	
 	# Check whether flipping SNPs reduced the number of SNPs with mismatched allele codes
-	if(!is.na(opt$PLINK_prefix_new)){
-		Target<-data.frame(fread(paste(opt$PLINK_prefix_new,'.bim',sep='')))
+	if(!is.na(opt$PLINK_prefix)){
+		Target<-data.frame(fread(paste(PLINK_prefix_new,'.bim',sep='')))
 	}
 	
 	if(!is.na(opt$PLINK_prefix_chr)){
-		PLINK_prefix_chr_files<-sub('.*/', '', opt$PLINK_prefix_chr)
-		PLINK_prefix_chr_dir<-sub(PLINK_prefix_chr_files, '', opt$PLINK_prefix_chr)
-		temp = list.files(path=PLINK_prefix_chr_dir, pattern=paste0(PLINK_prefix_chr_files,'*.bim'))
-		Target<-do.call(rbind, lapply(paste0(ref_ld_chr_dir,temp), function(x) data.frame(fread(x))))
+		PLINK_prefix_chr_files<-sub('.*/', '', PLINK_prefix_new)
+		PLINK_prefix_chr_dir<-sub(PLINK_prefix_chr_files, '', PLINK_prefix_new)
+		temp = list.files(path=PLINK_prefix_chr_dir, pattern=paste0(PLINK_prefix_chr_files,'.*.bim'))
+		Target<-do.call(rbind, lapply(paste0(PLINK_prefix_chr_dir,temp), function(x) data.frame(fread(x))))
 	}
 	
 	Target<-Target[match(Ref$V2, Target$V2),]
 	mismatch2<-Target[which(Target$V5 != Ref$V5 & Target$V5 != Ref$V6),]
 	
 	sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
-	cat('Number of SNPs that have mismatched allele codes after flipping= ',length(mismatch2),'\n',sep='')
+	cat('Number of SNPs that have mismatched allele codes after flipping= ',dim(mismatch2)[1],'\n',sep='')
 	sink()
 }
 
@@ -196,7 +220,7 @@ sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
 cat('Converting weights files into PLINK SCORE files...',sep='')
 sink()
 
-error<-foreach(i=1:length(pos$FILE), .combine=c) %dopar% {
+tmp<-foreach(i=1:length(pos$FILE), .combine=c) %dopar% {
 	system(paste0('Rscript ',opt$make_score_script,' ',pos$FILE[i],' > ', opt$output,'/SCORE_FILES/',pos$WGT[i],'.SCORE'))
 }
 
@@ -204,11 +228,19 @@ sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
 cat('Done!\n',sep='')
 sink()
 
-sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
-cat(sum(error),' errors were encountered when creating SCORE files\n',sep='')
-sink()
+# Some SCORE files end up empty due to errors in the weights files. Report how many.
+score<-list.files(path=paste0(opt$output,'/SCORE_FILES'), pattern = '*.SCORE')
+info<-file.info(paste0(opt$output,'/SCORE_FILES/',score))
+score_failed<-data.frame(FILE1=rownames(info[which(info$size == 0),]))
+if(dim(score_failed)[1] > 0){
+	score_failed$ID<-gsub('.*/','',score_failed$FILE1)
+	score_failed$ID<-gsub('.SCORE','',score_failed$ID)
+	score_failed<-merge(score_failed, pos[c('WGT','FILE')], by.x='ID',by.y='WGT')
+	fwrite(list(score_failed$FILE),paste0(opt$output,'/SCORE_failed.txt'), col.names=F)
 
-if(sum(error) != 0){
+	sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
+	cat(dim(score_failed)[1],' weights files could not be converted to SCORE files (',opt$output,'/SCORE_failed.txt)\n',sep='')
+	sink()
 }
 
 #######################################
@@ -223,19 +255,41 @@ sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
 cat('Predicting features in target sample...',sep='')
 sink()
 
-error<-foreach(i=1:length(pos$FILE), .combine=c) %dopar% {
-	system(paste0(opt$plink,' --bfile ',opt$PLINK_prefix_new,' --score ',opt$output,'/SCORE_FILES/',pos$WGT[i],'.SCORE 1 2 4 --out ',opt$output,'/PROFILE_FILES/',pos$WGT[i],' --memory ', floor((opt$memory*0.8)/opt$n_cores+2)),ignore.stdout=T, ignore.stderr=T)
+error_table<-foreach(i=1:length(pos$FILE), .combine=rbind) %dopar% {
+	if(!is.na(opt$PLINK_prefix)){
+		error<-system(paste0(opt$plink,' --bfile ',PLINK_prefix_new,' --score ',opt$output,'/SCORE_FILES/',pos$WGT[i],'.SCORE 1 2 4 --out ',opt$output,'/PROFILE_FILES/',pos$WGT[i],' --memory ', floor((opt$memory*0.8)/opt$n_cores+2)),ignore.stdout=T, ignore.stderr=T)
+	} else {
+		error<-system(paste0(opt$plink,' --bfile ',PLINK_prefix_new,'.',pos$CHR[i],' --score ',opt$output,'/SCORE_FILES/',pos$WGT[i],'.SCORE 1 2 4 --out ',opt$output,'/PROFILE_FILES/',pos$WGT[i],' --memory ', floor((opt$memory*0.8)/opt$n_cores+2)),ignore.stdout=T, ignore.stderr=T)
+	}
+	data.frame(N=i,Error=error)
 }
 
 sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
 cat('Done!\n',sep='')
 sink()
 
-sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
-cat(sum(error),' errors were encountered during feature prediction\n',sep='')
-sink()
+error_table$Error[error_table$Error > 0]<-1
+error_table<-error_table[error_table$Error > 0,]
 
-if(sum(error) != 0){
+if(dim(error_table)[1]){
+	error_table$ID<-NA
+	error_table$Reason<-'Unknown'
+
+	for(i in 1:dim(error_table)[1]){
+		j<-error_table$N[i]
+		error_table$ID[i]<-pos$WGT[j]
+		tmp1<-read.table(paste0(opt$output,'/PROFILE_FILES/',pos$WGT[j],'.log'),sep='*')
+		NoValid<-sum(grepl('Error: No valid entries in --score file.',tmp1$V1))
+		error_table$Reason[i]<-'Error: No valid entries in --score file.'
+	}
+
+	error_table$Error<-NULL
+	error_table<-error_table[c('ID','Reason')]
+	fwrite(error_table, paste0(opt$output,'/Prediction_failed.txt'), sep=' ')
+
+	sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
+	cat(dim(error_table)[1],' feature/s could not be predicted (',opt$output,'/Prediction_failed.txt)\n',sep='')
+	sink()
 }
 
 #######################################
@@ -246,7 +300,12 @@ if(sum(error) != 0){
 files<-list.files(path=paste0(opt$output,'/PROFILE_FILES/'),pattern='*profile')
 files<-gsub('.profile', '', files)
 
-fam<-read.table(paste0(opt$PLINK_prefix_new,'.fam'), header=F, stringsAsFactors=F)
+if(!is.na(opt$PLINK_prefix)){
+	fam<-read.table(paste0(PLINK_prefix_new,'.fam'), header=F, stringsAsFactors=F)
+} else {
+	fam<-read.table(paste0(PLINK_prefix_new,'.22.fam'), header=F, stringsAsFactors=F)
+}
+
 IDs<-fam[c(1,2)]
 names(IDs)<-c('FID','IID')
 
@@ -268,8 +327,18 @@ sink()
 #########################################
 
 system(paste0('rm ', opt$output,'/intersect*'))
-system(paste0('rm -r ', opt$output,'/SCORE_FILES'))
-system(paste0('rm -r ', opt$output,'/PROFILE_FILES'))
+
+if(opt$save_score == F){
+	system(paste0('rm -r ', opt$output,'/SCORE_FILES'))
+}
+
+if(opt$save_profile == F){
+	system(paste0('rm -r ', opt$output,'/PROFILE_FILES'))
+}
+
+if(dim(mismatch)[1] != 0){
+system(paste0('rm -r ', opt$output,'/mismatch.snplist'))
+}
 
 #########################################
 # Write a summary to the log file

@@ -1,6 +1,6 @@
 # Predicting TWAS features (FeaturePred)
 
-FeaturePred is a tool designed to simplify the process of predicting features (e.g. gene expression) in a target sample. It is designed to work with FUSION formated SNP-weights files and PLINK formatted genotype data. It uses a FUSION released script to convert the weights files into a PLINK .score file, which is then used to predict the feature in a target sample using PLINK.
+FeaturePred is a tool designed to simplify the process of predicting features (e.g. gene expression) in a target sample. It is designed to work with FUSION formated SNP-weights files and PLINK formatted genotype data. It uses a FUSION released script to convert the weights files into a PLINK .SCORE file, which is then used to predict the feature in a target sample using PLINK.
 
 Access to weights files and more information on FUSION can be found [here](http://gusevlab.org/projects/fusion/).
 
@@ -12,69 +12,125 @@ Access to weights files and more information on FUSION can be found [here](http:
 
 * Install the following R packages:
   * data.table
+
   * optparse
+
   * foreach
+
   * doMC
 
-* Target sample genetic data should be in binary PLINK format (.bed/.bim/.fam) with RSIDs that match the FUSION released 1000 Genomes reference data 
-* Impute gene expression levels in the target sample:
-  * Instructions on how to impute gene expression levels are [here](http://gusevlab.org/projects/fusion/).
+    
+
+* Target sample genetic data
+
+  * Binary PLINK format (.bed/.bim/.fam)
+
+  * RSIDs should match the FUSION LD reference data, which can be downloaded [here](https://data.broadinstitute.org/alkesgroup/FUSION/LDREF.tar.bz2).
+
+    
+
+* FUSION formatted SNP-weights
+
+  * Can be downloaded from the [FUSION website](http://gusevlab.org/projects/fusion/)
+  * To make your own FUSION format SNP-weights, see the [FUSION website](http://gusevlab.org/projects/fusion/) and an easy to use pipeline that I wrote [here](http://gitlab.psycm.cf.ac.uk/mpmop/Calculating-FUSION-TWAS-weights-pipeline)
 
 
+
+### Provided software and data
+
+* fusion_twas-master - This contains all the fusion scripts and the 1KG reference released by FUSION.
+
+* plink2 - PLINK v1.90b5.4
+
+* test_data/CMC_weights_mini - 10 CMC-based TWAS weights files from the FUSION website
+
+* test_data/CMC_weights_mini.pos - A .pos file listing the weights files in CMC_weights_mini
+
+  
 
 ### Input files
 
-##### --twas_results
+##### --PLINK_prefix
 
-The output of [**FUSION.assoc_test.R** ](https://github.com/gusevlab/fusion_twas/blob/master/FUSION.assoc_test.R) or a file containing the following columns FILE, P0, P1, TWAS.Z, TWAS.P.  Per chromosome files should be combined into a single file. An example is available [here](http://gitlab.psycm.cf.ac.uk/mpmop/gene-expression-risk-scoring/blob/master/ukbiobank-2017-1160-prePRS-fusion.tsv.GW). The file can whitespace or comma delimited. If the file name ends .gz, the file will be assumed to gzipped.
+Path to genome-wide PLINK binaries (.bed/.bim/.fam)
 
-##### --target_gene_exp
+##### --PLINK_prefix_chr
 
-A file containing gene expression values for each individual in your target sample. The first two columns are should FID and IID, then each column should contain gene expression data. An example is available [here](http://gitlab.psycm.cf.ac.uk/mpmop/gene-expression-risk-scoring/blob/master/CMC.BRAIN.RNASEQ_GeneX_all_MINI.csv). The gene expression column names must match the values in the FILE column in the --twas_results file. IFRisk ignores the substring before the last '/' and the '.wgt.RDat' string when matching. For example, the column name for the gene expression corresponding to the first value of the [example TWAS results](http://gitlab.psycm.cf.ac.uk/mpmop/gene-expression-risk-scoring/blob/master/ukbiobank-2017-1160-prePRS-fusion.tsv.GW) should be 'CMC.LOC643837'. The file must be readable by the fread function in R. The file can whitespace or comma delimited. If the file name ends .gz, the file will be assumed to gzipped.
+Path to per chromosome PLINK binaries (.bed/.bim/.fam)
+
+##### --weights
+
+Path for .pos file describing features
+
+##### --weights_dir
+
+Directory containing the weights corresponding to the features in the .pos file
+
+##### --ref_ld_chr
+
+Path to FUSION 1KG reference
+
+##### --make_score_script
+
+Path 'make_score.R
+
+##### --n_cores
+
+Specify the number of cores available for parallel computing.
+
+##### --memory
+
+RAM available in MB.
+
+##### --plink
+
+Path to PLINK software
+
+##### --output
+
+Name of output directory
 
 
 
 ### Output files
 
-##### '-GeRS.csv' 
+In the specified output directory, the following files will be produced:
 
-This comma delimited file will contain the gene expression risk scores in the target sample specified. The first two columns are FID and IID, and then each column will contain scores based on the different p-value thresholds specified.
+##### --FeaturePredictions.csv
 
-##### '-NGene_Table.csv'
+Comma delimited file containing FID, IID, and the predicted values for each feature.
 
-This comma delimited file will contain information on the number of genes surpassing the different p-value threshold specified before and after pruning.
+##### --FeaturePredictions.log
 
-##### '.log'
-
-This is a log file containing general information on the time taken, any errors, the number of genes at different stages and more.
+A log file with information on the analysis.
 
 
 
 ### Optional parameters
 
-##### --prune_thresh
+##### --n_cores
 
-R-squared threshold for pruning genes. 
+Specify the number of cores available for parallel computing.
 
-Default value = 0.9
+Default = 1
 
-##### --cor_window
+##### --memory
 
-Window for deriving pruning blocks in bases. 
+RAM available in MB.
 
-Default value = 5e6
+Default = 2000
 
-##### --pTs
+##### --save_score
 
-The p-value thresholds used to derive the risk scores. There must not be spaces between the values.
+Specify as T if temporary .SCORE files should kept.
 
-Default value = '5e-1,1e-1,5e-2,1e-2,1e-3,1e-4,1e-5,1e-6'
+Default = F
 
-##### --prune_mhc
+##### --save_profile
 
-Option to retain only the most significant gene within the MHC region. 
+Specify as T if temporary .profile files should kept.
 
-Default value = T
+Default = F
 
 
 
@@ -83,19 +139,28 @@ Default value = T
 ##### When using default settings:
 
 ```R
-Rscript IRIS.V1.0.R \
-	--twas_results ukbiobank-2017-1160-prePRS-fusion.tsv.GW \
-	--target_gene_exp CMC.BRAIN.RNASEQ_GeneX_all_MINI.csv \
+Rscript FeaturePred.V1.0.R \
+	--PLINK_prefix_chr fusion_twas-master/LDREF/1000G.EUR. \
+	--weights test_data/CMC_weights_mini.pos \
+	--weights_dir test_data/CMC_weights_mini \
+	--ref_ld_chr fusion_twas-master/LDREF/1000G.EUR. \
+	--make_score_script fusion_twas-master/utils/make_score.R \
+	--plink ./plink2 \
 	--output demo
 ```
 
-##### When using specific p-value thresholds
+##### Running in parallel on cluster:
 
-```R
-Rscript IRIS.V1.0.R \
-	--twas_results ukbiobank-2017-1160-prePRS-fusion.tsv.GW \
-	--target_gene_exp CMC.BRAIN.RNASEQ_GeneX_all_MINI.csv \
-	--pTs 1e-5,0.01,0.5 \
+```r
+qsub -cwd -b y -l h_vmem=50G,mem_free=50G -e /dev/null -o /dev/null Rscript FeaturePred.V1.0.R \
+	--PLINK_prefix_chr fusion_twas-master/LDREF/1000G.EUR. \
+	--weights test_data/CMC_weights_mini.pos \
+	--weights_dir test_data/CMC_weights_mini \
+	--ref_ld_chr fusion_twas-master/LDREF/1000G.EUR. \
+	--make_score_script fusion_twas-master/utils/make_score.R \
+	--plink ./plink2 \
+	--n_cores 5 \
+	--memory 50000 \
 	--output demo
 ```
 
