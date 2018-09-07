@@ -11,15 +11,15 @@ Access to weights files and more information on FUSION can be found [here](http:
 ### Prerequisites
 
 * R and the required packages:
-  ```R
-  install.packages(c('data.table','optparse','foreach','doMC'))
-  ```
+```R
+install.packages(c('data.table','optparse','foreach','doMC'))
+```
 
 * FUSION software:
 
-  ```
-  git clone https://github.com/gusevlab/fusion_twas.git
-  ```
+```
+git clone https://github.com/gusevlab/fusion_twas.git
+```
 
 * FUSION LD reference data ([download](https://data.broadinstitute.org/alkesgroup/FUSION/LDREF.tar.bz2))
 
@@ -34,6 +34,8 @@ Access to weights files and more information on FUSION can be found [here](http:
 
   * Can be downloaded from the [FUSION website](http://gusevlab.org/projects/fusion/)
   * To make your own FUSION format SNP-weights, see the [FUSION website](http://gusevlab.org/projects/fusion/) and an easy to use pipeline that I wrote [here](http://gitlab.psycm.cf.ac.uk/mpmop/Calculating-FUSION-TWAS-weights-pipeline)
+
+
 
 ### Parameters
 
@@ -62,8 +64,8 @@ In the specified output directory, the following files will be produced:
 | ---------------------- | ------------------------------------------------------------ |
 | FeaturePredictions.csv | Comma delimited file containing FID, IID, and the predicted values for each feature. |
 | FeaturePredictions.log | Log file.                                                    |
-| SCORE_failed.txt       | Text file listing weights which couldn't be converted to a .SCORE file. |
-| Prediction_failed.txt  | Text file listing features that could not be predicted with the reason why. |
+| SCORE_failed.txt       | Text file listing weights which couldn't be converted to a .SCORE file (if any). |
+| Prediction_failed.txt  | Text file listing features that couldn't be predicted (if any). |
 
 
 
