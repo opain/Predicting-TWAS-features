@@ -76,7 +76,7 @@ These examples use the weights and .pos file provided [here](http://gitlab.psycm
 
 ##### When using default settings:
 
-```R
+```shell
 Rscript FeaturePred.V1.0.R \
 	--PLINK_prefix_chr fusion_twas-master/LDREF/1000G.EUR. \
 	--weights test_data/CMC_weights_mini.pos \
@@ -89,7 +89,7 @@ Rscript FeaturePred.V1.0.R \
 
 ##### Running in parallel on cluster:
 
-```r
+```shell
 qsub -cwd -b y -l h_vmem=50G,mem_free=50G Rscript FeaturePred.V1.0.R \
 	--PLINK_prefix_chr fusion_twas-master/LDREF/1000G.EUR. \
 	--weights test_data/CMC_weights_mini.pos \
