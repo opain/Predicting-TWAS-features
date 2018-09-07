@@ -11,13 +11,14 @@ Access to weights files and more information on FUSION can be found [here](http:
 ### Prerequisites
 
 * R and the required packages:
+
 ```R
 install.packages(c('data.table','optparse','foreach','doMC'))
 ```
 
 * FUSION software:
 
-```
+```R
 git clone https://github.com/gusevlab/fusion_twas.git
 ```
 
