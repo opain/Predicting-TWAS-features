@@ -10,85 +10,47 @@ Access to weights files and more information on FUSION can be found [here](http:
 
 ### Prerequisites
 
-* Install the following R packages:
-  * data.table
+* R and the required packages:
+  ```R
+  install.packages(c('data.table','optparse','foreach','doMC'))
+  ```
 
-  * optparse
+* FUSION software:
 
-  * foreach
+  ```
+  git clone https://github.com/gusevlab/fusion_twas.git
+  ```
 
-  * doMC
+* FUSION LD reference data ([download](https://data.broadinstitute.org/alkesgroup/FUSION/LDREF.tar.bz2))
 
-    
+* [PLINK 1.9 software](https://www.cog-genomics.org/plink2)
 
 * Target sample genetic data
 
-  * Binary PLINK format (.bed/.bim/.fam)
-
-  * RSIDs should match the FUSION LD reference data, which can be downloaded [here](https://data.broadinstitute.org/alkesgroup/FUSION/LDREF.tar.bz2).
-
-    
+  * Binary PLINK format (.bed/.bim/.fam) 
+  * RSIDs should match the FUSION LD reference data (1000 Genomes phase 3)
 
 * FUSION formatted SNP-weights
 
   * Can be downloaded from the [FUSION website](http://gusevlab.org/projects/fusion/)
   * To make your own FUSION format SNP-weights, see the [FUSION website](http://gusevlab.org/projects/fusion/) and an easy to use pipeline that I wrote [here](http://gitlab.psycm.cf.ac.uk/mpmop/Calculating-FUSION-TWAS-weights-pipeline)
 
+### Parameters
 
-
-### Provided software and data
-
-* fusion_twas-master - This contains all the fusion scripts and the 1KG reference released by FUSION.
-
-* plink2 - PLINK v1.90b5.4
-
-* test_data/CMC_weights_mini - 10 CMC-based TWAS weights files from the FUSION website
-
-* test_data/CMC_weights_mini.pos - A .pos file listing the weights files in CMC_weights_mini
-
-  
-
-### Input files
-
-##### --PLINK_prefix
-
-Path to genome-wide PLINK binaries (.bed/.bim/.fam)
-
-##### --PLINK_prefix_chr
-
-Path to per chromosome PLINK binaries (.bed/.bim/.fam)
-
-##### --weights
-
-Path for .pos file describing features
-
-##### --weights_dir
-
-Directory containing the weights corresponding to the features in the .pos file
-
-##### --ref_ld_chr
-
-Path to FUSION 1KG reference
-
-##### --make_score_script
-
-Path 'make_score.R
-
-##### --n_cores
-
-Specify the number of cores available for parallel computing.
-
-##### --memory
-
-RAM available in MB.
-
-##### --plink
-
-Path to PLINK software
-
-##### --output
-
-Name of output directory
+| Flag                | Description                                                  | Default |
+| :------------------ | ------------------------------------------------------------ | :-----: |
+| --PLINK_prefix      | Path to genome-wide PLINK binaries (.bed/.bim/.fam)          |   NA    |
+| --PLINK_prefix_chr  | Path to per chromosome PLINK binaries (.bed/.bim/.fam)       |   NA    |
+| --weights           | Path for .pos file describing features                       |   NA    |
+| --weights_dir       | Directory containing the weights listed in the .pos file     |   NA    |
+| --ref_ld_chr        | Path to FUSION 1KG reference                                 |   NA    |
+| --make_score_script | Path 'make_score.R' script (within FUSION software)          |   NA    |
+| --n_cores           | Specify the number of cores available for parallel computing. |    1    |
+| --memory            | RAM available in MB.                                         |  2000   |
+| --plink             | Path to PLINK software                                       |   NA    |
+| --save_score        | Specify as T if temporary .SCORE files should kept.          |  FALSE  |
+| --save_profile      | Specify as T if temporary .profile files should kept.        |  FALSE  |
+| --output            | Name of output directory                                     |   NA    |
 
 
 
@@ -96,45 +58,18 @@ Name of output directory
 
 In the specified output directory, the following files will be produced:
 
-##### --FeaturePredictions.csv
-
-Comma delimited file containing FID, IID, and the predicted values for each feature.
-
-##### --FeaturePredictions.log
-
-A log file with information on the analysis.
-
-
-
-### Optional parameters
-
-##### --n_cores
-
-Specify the number of cores available for parallel computing.
-
-Default = 1
-
-##### --memory
-
-RAM available in MB.
-
-Default = 2000
-
-##### --save_score
-
-Specify as T if temporary .SCORE files should kept.
-
-Default = F
-
-##### --save_profile
-
-Specify as T if temporary .profile files should kept.
-
-Default = F
+| Name                   | Description                                                  |
+| ---------------------- | ------------------------------------------------------------ |
+| FeaturePredictions.csv | Comma delimited file containing FID, IID, and the predicted values for each feature. |
+| FeaturePredictions.log | Log file.                                                    |
+| SCORE_failed.txt       | Text file listing weights which couldn't be converted to a .SCORE file. |
+| Prediction_failed.txt  | Text file listing features that could not be predicted with the reason why. |
 
 
 
 ## Examples
+
+These examples use the weights and .pos file provided [here](http://gitlab.psycm.cf.ac.uk/mpmop/Predicting-TWAS-features/tree/master/test_data).
 
 ##### When using default settings:
 
