@@ -58,7 +58,16 @@ if(!is.na(opt$PLINK_prefix) & !is.na(opt$PLINK_prefix_chr)){
 	cat('Error: Both PLINK_prefix and PLINK_prefix_chr have been specified.\n')
 	q()
 }
-
+if(is.na(opt$plink)){
+	cat('Error: --plink must be specified.\n')
+	q()
+} else {
+	plink_error<-system(paste0(opt$plink),ignore.stdout=T, ignore.stderr=T)
+if(plink_error == 127){
+		cat('Error: --plink cannot be found. Check the path for plink software.\n')
+		q()
+		}
+}
 sink()
 
 suppressMessages(library(data.table))
@@ -140,11 +149,11 @@ sink()
 if(dim(mismatch)[1] != 0){
 	# Save list of SNPs that need to flipped
 	fwrite(mismatch['V2'],paste0(opt$output,'/mismatch.snplist'),col.names=F)
-	
+
 	sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
 	cat('Flipping mismatch allele in target sample...',sep='')
 	sink()
-	
+
 	# Run PLINK to flip mismatch alleles.
 	if(!is.na(opt$PLINK_prefix)){
 		system(paste0(opt$plink,' --bfile ', PLINK_prefix_new,' --make-bed --flip ',opt$output,'/mismatch.snplist --out ',opt$output,'/intersect_flipped_target --memory ', floor(opt$memory*.8)),ignore.stdout=T, ignore.stderr=T)
@@ -153,11 +162,11 @@ if(dim(mismatch)[1] != 0){
 			system(paste0(opt$plink,' --bfile ', PLINK_prefix_new,'.',i,' --make-bed --flip ',opt$output,'/mismatch.snplist --out ',opt$output,'/intersect_flipped_target.',i,' --memory ', floor((opt$memory*0.8)/opt$n_cores+2)),ignore.stdout=T, ignore.stderr=T)
 		}
 	}
-	
+
 	sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
 	cat('Done!\n',sep='')
 	sink()
-	
+
 	# Delete intersect file
 	if(!is.na(opt$PLINK_prefix)){
 		system(paste0('rm ',PLINK_prefix_new,'.bed'))
@@ -170,25 +179,25 @@ if(dim(mismatch)[1] != 0){
 			system(paste0('rm ',PLINK_prefix_new,'.',i,'.fam'))
 		}
 	}
-	
+
 	# Reassign PLINK_prefix_new to the flipped files.
 	PLINK_prefix_new<-paste0(opt$output,'/intersect_flipped_target')
-	
+
 	# Check whether flipping SNPs reduced the number of SNPs with mismatched allele codes
 	if(!is.na(opt$PLINK_prefix)){
 		Target<-data.frame(fread(paste(PLINK_prefix_new,'.bim',sep='')))
 	}
-	
+
 	if(!is.na(opt$PLINK_prefix_chr)){
 		PLINK_prefix_chr_files<-sub('.*/', '', PLINK_prefix_new)
 		PLINK_prefix_chr_dir<-sub(PLINK_prefix_chr_files, '', PLINK_prefix_new)
 		temp = list.files(path=PLINK_prefix_chr_dir, pattern=paste0(PLINK_prefix_chr_files,'.*.bim'))
 		Target<-do.call(rbind, lapply(paste0(PLINK_prefix_chr_dir,temp), function(x) data.frame(fread(x))))
 	}
-	
+
 	Target<-Target[match(Ref$V2, Target$V2),]
 	mismatch2<-Target[which(Target$V5 != Ref$V5 & Target$V5 != Ref$V6),]
-	
+
 	sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
 	cat('Number of SNPs that have mismatched allele codes after flipping= ',dim(mismatch2)[1],'\n',sep='')
 	sink()
