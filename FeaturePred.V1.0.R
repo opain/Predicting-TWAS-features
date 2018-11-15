@@ -66,6 +66,11 @@ if(is.na(opt$plink)){
 if(plink_error == 127){
 		cat('Error: --plink cannot be found. Check the path for plink software.\n')
 		q()
+		} else {
+			plink_log<-system(paste0(opt$plink,' --help'),intern=T)
+			if(length(grep('PLINK v1.9',plink_log[1])) == 0) {
+				cat('\nWarning: Check you are using PLINK v1.9!\n\n')
+			}
 		}
 }
 sink()
