@@ -67,9 +67,10 @@ if(plink_error == 127){
 		cat('Error: --plink cannot be found. Check the path for plink software.\n')
 		q()
 		} else {
-			plink_log<-system(paste0(opt$plink,' --help'),intern=T)
+			plink_log<-system(paste0(opt$plink,' --help --noweb'),intern=T)
 			if(length(grep('PLINK v1.9',plink_log[1])) == 0) {
 				cat('\nWarning: Check you are using PLINK v1.9!\n\n')
+				system(paste0('rm plink.log'))
 			}
 		}
 }
@@ -228,6 +229,22 @@ pos$WGT<-gsub('.*/','',pos$WGT)
 
 # Create directory for the SCORE files
 system(paste0('mkdir ',opt$output,'/SCORE_FILES'))
+
+# Check the weights files exist
+exists_log<-NULL
+for(i in dim(pos)[1]){
+	if(!file.exists(pos$FILE[i])){
+			exists_log<-c(exists_log,F)
+	} else {
+			exists_log<-c(exists_log,T)
+	}
+}		
+
+sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
+if(sum(exists_log == T) == 0){
+	cat('Error: No weights files found! Check the weights_dir option.\n',sep='')
+	q()
+}
 
 # Create SCORE file for each set of weights using FUSION make_score.R
 sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
