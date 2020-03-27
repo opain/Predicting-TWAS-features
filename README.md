@@ -62,12 +62,12 @@ git clone https://github.com/gusevlab/fusion_twas.git
 
 In the specified output directory, the following files will be produced:
 
-| Name                                              | Description                                                  |
-| ------------------------------------------------- | ------------------------------------------------------------ |
-| FeaturePredictions_<PANEL>\_chr<chr>\.txt.gz .csv | Space delimited file containing FID, IID, and the predicted values for each feature. |
-| FeaturePredictions.log                            | Log file.                                                    |
-| SCORE_failed.txt                                  | Text file listing weights which couldn't be converted to a .SCORE file (if any). |
-| Prediction_failed.txt                             | Text file listing features that couldn't be predicted (if any). |
+| Name                                                  | Description                                                  |
+| ----------------------------------------------------- | ------------------------------------------------------------ |
+| FeaturePredictions_\<PANEL\>\_chr\<chr\>\.txt.gz .csv | Space delimited file containing FID, IID, and the predicted values for each feature. |
+| FeaturePredictions.log                                | Log file.                                                    |
+| SCORE_failed.txt                                      | Text file listing weights which couldn't be converted to a .SCORE file (if any). |
+| Prediction_failed.txt                                 | Text file listing features that couldn't be predicted (if any). |
 
 
 
