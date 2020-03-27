@@ -1,5 +1,5 @@
 #!/usr/bin/Rscript
-# This script was written by Oliver Pain whilst at Cardiff University under the supervision of Richard Anney.
+# This script was written by Oliver Pain.
 start.time <- Sys.time()
 suppressMessages(library("optparse"))
 
@@ -33,7 +33,7 @@ make_option("--pigz", action="store", default=NA, type='character',
 make_option("--targ_pred", action="store", default=T, type='logical',
 		help="Set to F to create SCORE file and expression reference only [optional]"),
 make_option("--ref_maf", action="store", default=NA, type='character',
-		help="Path to per chromosome PLINK freq files [required]"),
+		help="Path to per chromosome PLINK .frq files [required]"),
 make_option("--chr", action="store", default=NA, type='numeric',
 		help="Specify chromosome number [optional]")
 )
@@ -160,7 +160,7 @@ if(opt$targ_pred == T){
 
 	if(n_flip > 0){
 		sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
-		cat('SNPs will be flipped!\n')
+		cat(n_flip,'SNPs will be flipped!\n')
 		sink()
 		flip_list<-		Ref_Target$V2[Ref_Target$IUPAC.x == 'R' & Ref_Target$IUPAC.y == 'Y' | 
 									Ref_Target$IUPAC.x == 'Y' & Ref_Target$IUPAC.y == 'R' | 
@@ -206,7 +206,7 @@ cat('The .pos file contains ',dim(pos)[1],' features.\n',sep='')
 sink()
 
 # Attach weights directory to WGT values in pos file
-pos$FILE<-paste0(opt$weights_dir,'/',pos$PANEL,'/',pos$PANEL,'/',sub('.*/','',pos$WGT))
+pos$FILE<-paste0(opt$weights_dir,'/',pos$PANEL,'/',sub('.*/','',pos$WGT))
 
 # Remove .wgt.RDat from the WGT values
 pos$WGT<-gsub('.wgt.RDat','',pos$WGT)
@@ -278,10 +278,10 @@ if(is.na(opt$ref_expr)){
 
 	error_table<-foreach(i=1:length(pos$FILE), .combine=rbind) %dopar% {
 		# Calculate feature predictions
-		error<-system(paste0(opt$plink,' --bfile ',opt$ref_ld_chr,pos$CHR[i],' --extract ',opt$score_files,'/',pos$WGT[i],'.snplist --allow-no-sex --read-freq ',opt$ref_maf,pos$CHR[i],'.frqx --score ',opt$score_files,'/',pos$WGT[i],'.SCORE 1 2 4 --out ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],' --memory ', floor((opt$memory*0.4)/opt$n_cores)),ignore.stdout=T, ignore.stderr=T)
+		error<-system(paste0(opt$plink,' --bfile ',opt$ref_ld_chr,pos$CHR[i],' --extract ',opt$score_files,'/',pos$WGT[i],'.snplist --allow-no-sex --read-freq ',opt$ref_maf,pos$CHR[i],'.frq --score ',opt$score_files,'/',pos$WGT[i],'.SCORE 1 2 4 --out ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],' --memory ', floor((opt$memory*0.4)/opt$n_cores)),ignore.stdout=T, ignore.stderr=T)
 		# Delete temporary files and extract feature prediction column to reduce disk space
 		system(paste0("awk '{print $6}' ",opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile | tail -n +2 > ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini'),intern=T)
-		system(paste0("echo ",pos$WGT[i]," | cat - ",opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini > ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini_tmp && mv ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini_tmp ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini'),intern=T)
+		system(paste0("echo ",pos$PANEL,'.',pos$WGT[i]," | cat - ",opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini > ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini_tmp && mv ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini_tmp ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini'),intern=T)
 		system(paste0('rm ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile'),ignore.stdout=T, ignore.stderr=T)
 		system(paste0('rm ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.nosex'),ignore.stdout=T, ignore.stderr=T)
 		data.frame(N=i,Error=error)
@@ -351,7 +351,7 @@ if(is.na(opt$ref_expr)){
 		REF_expr_scaled<-REF_expr
 		REF_expr_scaled[ , (names(REF_expr_scaled)[-1:-2]) := lapply(.SD, function(x) round(as.numeric(scale(x)),3)), .SDcols = (names(REF_expr_scaled)[-1:-2])]
 		for(panel in unique(pos$PANEL)){
-			REF_expr_scaled_pan<-REF_expr_scaled[,grepl(paste('FID','IID',panel,sep='|'), names(REF_expr_scaled)), with=FALSE]
+			REF_expr_scaled_pan<-REF_expr_scaled[,c(T,T,grepl(panel, names(REF_expr_scaled)[-1:-2])), with=FALSE]
 			fwrite(REF_expr_scaled_pan, paste0(opt$output,'/Reference_Expression/Reference_Expression_',panel,'.txt'), nThread = opt$n_cores, sep=' ')
 			system(paste0(opt$pigz,' ',opt$output,'/Reference_Expression/Reference_Expression_',panel,'.txt'))
 		}
@@ -377,7 +377,16 @@ if(opt$targ_pred == T){
 	
 	foreach(chr=CHROMS, .combine=c) %dopar% {
 		system(paste0(opt$plink,' --bfile ',opt$ref_ld_chr,chr,' --keep ',opt$output,'/ref_keep --make-bed --out ',opt$output,'/ref_indiv_chr',chr,' --memory ', floor((opt$memory*0.4)/opt$n_cores)),ignore.stdout=T, ignore.stderr=T)
+
+		# Update ref indiv ID to be distinct from target samples
+		ref_fam<-fread(paste0(opt$output,'/ref_indiv_chr',chr,'.fam'))
+		ref_fam$V1<-paste0('REF_',ref_fam$V1)
+		ref_fam$V2<-paste0('REF_',ref_fam$V2)
+		write.table(ref_fam, paste0(opt$output,'/ref_indiv_chr',chr,'.fam'), col.names=F, row.names=F, quote=F)
+		rm(ref_fam)
+		gc()
 	}
+	
 
 	###################################
 	# Calculate feature predictions in the target sample
@@ -411,7 +420,7 @@ if(opt$targ_pred == T){
 
 		# Merge and remove single individual with the target data to insert missing reference SNPs.
 		system(paste0(opt$plink,' --bfile ',opt$output,'/targ_chr',chr,' --bmerge ',opt$output,'/ref_indiv_chr',chr,' --make-bed --out ',opt$output,'/ref_targ_chr',chr,' --memory ',floor((opt$memory*0.4))),ignore.stdout=T, ignore.stderr=T)
-		system(paste0(opt$plink,' --bfile ',opt$output,'/ref_targ_chr',chr,' --remove ',opt$output,'/ref_keep --make-bed --out ',opt$output,'/targ_chr',chr,' --memory ',floor((opt$memory*0.4))),ignore.stdout=T, ignore.stderr=T)
+		system(paste0(opt$plink,' --bfile ',opt$output,'/ref_targ_chr',chr,' --remove ',opt$output,'/ref_indiv_chr',chr,'.fam --make-bed --out ',opt$output,'/targ_chr',chr,' --memory ',floor((opt$memory*0.4))),ignore.stdout=T, ignore.stderr=T)
 
 		# Delete the temporary files
 		system(paste0('rm ',opt$output,'/ref_targ_chr*'))
@@ -428,7 +437,7 @@ if(opt$targ_pred == T){
 			pos_chr_panel<-pos_chr[pos_chr$PANEL == panel,]	
 			TARG_expr<-foreach(i=1:length(pos_chr_panel$FILE), .combine=cbind) %dopar% {
 				# Calculate feature predictions
-				tmp<-system(paste0(opt$plink,' --bfile ',opt$output,'/targ_chr',chr,' --extract ',opt$score_files,'/',pos_chr_panel$WGT[i],'.snplist --allow-no-sex --read-freq ',opt$ref_maf,chr,'.frqx --score ',opt$score_files,'/',pos_chr_panel$WGT[i],'.SCORE 1 2 4 --out ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],' --memory ', floor((opt$memory*0.4)/opt$n_cores)),ignore.stdout=T, ignore.stderr=T)
+				tmp<-system(paste0(opt$plink,' --bfile ',opt$output,'/targ_chr',chr,' --extract ',opt$score_files,'/',pos_chr_panel$WGT[i],'.snplist --allow-no-sex --read-freq ',opt$ref_maf,chr,'.frq --score ',opt$score_files,'/',pos_chr_panel$WGT[i],'.SCORE 1 2 4 --out ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],' --memory ', floor((opt$memory*0.4)/opt$n_cores)),ignore.stdout=T, ignore.stderr=T)
 
 				if(tmp != 0){ 
 						# Delete temporary files
@@ -439,14 +448,14 @@ if(opt$targ_pred == T){
 				# Read in the predictions, extract SCORE column and change header.
 				feature<-fread(paste0(opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.profile'), nThread=1)
 				feature<-feature[,6]
-				names(feature)<-pos_chr_panel$WGT[i]
+				names(feature)<-paste0(panel,'.',pos_chr_panel$WGT[i])
 				
 				# Delete temporary files
 				system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.*'),ignore.stdout=T, ignore.stderr=T)
 				
 				# Scale expression to the reference and round
-				feature<-feature-ref_scale$Mean[ref_scale$ID == pos_chr_panel$WGT[i]]
-				feature<-feature/ref_scale$SD[ref_scale$ID == pos_chr_panel$WGT[i]]
+				feature<-feature-ref_scale$Mean[ref_scale$ID == names(feature)]
+				feature<-feature/ref_scale$SD[ref_scale$ID == names(feature)]
 				feature<-round(feature,3)
 
 				feature
@@ -477,26 +486,21 @@ if(opt$targ_pred == T){
 	}		
 		
 	# Combine per chromosome predicted expression values and insert FID and IID columns
-	if(!is.na(opt$chr)){
-		for(panel in unique(pos$PANEL)){
-			system(paste0('mv ',opt$output,'/TARG_PROFILE_FILES/chr',CHROMS,'/',panel,'_expression.txt.gz ',opt$output,'/FeaturePredictions_',panel,'_chr',CHROMS,'.txt.gz'))
+	sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
+	cat('Combining per chromomsome files...')
+	sink()
+	for(panel in unique(pos$PANEL)){
+		pos_panel<-pos[pos$PANEL == panel,]
+		for(chr in unique(pos_panel$CHR)){
+			system(paste0(opt$pigz,' -d ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_expression.txt.gz'))
 		}
-	} else {
-		sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
-		cat('Combining per chromomsome files...')
-		sink()
-		for(panel in unique(pos$PANEL)){
-			pos_panel<-pos[pos$PANEL == panel,]
-			for(chr in unique(pos_panel$CHR)){
-				system(paste0(opt$pigz,' -d ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_expression.txt.gz'))
-			}
-			system(paste0("paste -d ' ' $(echo ",opt$output,'/TARG_PROFILE_FILES/TARG.IDs $(ls ',opt$output,'/TARG_PROFILE_FILES/chr*/',panel,'_expression.txt)) | ',opt$pigz,' > ',opt$output,'/FeaturePredictions_',panel,'.txt.gz'))
-			system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr*/',panel,'_expression.txt'))
-		}
-		sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
-		cat('Done!\n')
-		sink()
+		system(paste0("paste -d ' ' $(echo ",opt$output,'/TARG_PROFILE_FILES/TARG.IDs $(ls ',opt$output,'/TARG_PROFILE_FILES/chr*/',panel,'_expression.txt)) | ',opt$pigz,' > ',opt$output,'/FeaturePredictions_',panel,'.txt.gz'))
+		system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr*/',panel,'_expression.txt'))
 	}
+	sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
+	cat('Done!\n')
+	sink()
+
 system(paste0("rm -r ",opt$output,"/TARG_PROFILE_FILES"))
 }
 	
