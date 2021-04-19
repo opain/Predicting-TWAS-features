@@ -143,6 +143,16 @@ if(opt$targ_pred == T){
 	Ref$IUPAC[Ref$V5 == 'G' & Ref$V6 =='T' | Ref$V5 == 'T' & Ref$V6 =='G']<-'K'
 	Ref$IUPAC[Ref$V5 == 'A' & Ref$V6 =='C' | Ref$V5 == 'C' & Ref$V6 =='A']<-'M'
 
+	if(sum(is.na(Ref$IUPAC)) > 0){
+	  sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
+	  cat(sum(is.na(Ref$IUPAC)),"non-SNP variants removed from reference data (Ref_non_SNPs.txt).\n")
+	  sink()
+	  
+	  write.table(Ref[is.na(Ref$IUPAC),], paste0(opt$output,'/Ref_non_SNPs.txt'), col.names=T, row.names=F, quote=F)
+	  
+	  Ref<-Ref[!is.na(Ref$IUPAC),]
+	}
+	
 	Target$IUPAC<-NA
 	Target$IUPAC[Target$V5 == 'A' & Target$V6 =='T' | Target$V5 == 'T' & Target$V6 =='A']<-'W'
 	Target$IUPAC[Target$V5 == 'C' & Target$V6 =='G' | Target$V5 == 'G' & Target$V6 =='C']<-'S'
@@ -151,6 +161,16 @@ if(opt$targ_pred == T){
 	Target$IUPAC[Target$V5 == 'G' & Target$V6 =='T' | Target$V5 == 'T' & Target$V6 =='G']<-'K'
 	Target$IUPAC[Target$V5 == 'A' & Target$V6 =='C' | Target$V5 == 'C' & Target$V6 =='A']<-'M'
 
+	if(sum(is.na(Target$IUPAC)) > 0){
+	  sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
+	  cat(sum(is.na(Target$IUPAC)),'non-SNP variants removed from target data (Targ_non_SNPs.txt).\n')
+	  sink()
+	  
+	  write.table(Target[is.na(Target$IUPAC),], paste0(opt$output,'/Targ_non_SNPs.txt'), col.names=T, row.names=F, quote=F)
+	  
+	  Target<-Target[!is.na(Target$IUPAC),]
+	}
+	
 	Ref_Target<-merge(Ref, Target, by='V2')
 
 	n_flip<-sum(Ref_Target$IUPAC.x == 'R' & Ref_Target$IUPAC.y == 'Y' | 
