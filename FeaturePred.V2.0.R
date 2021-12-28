@@ -27,7 +27,9 @@ make_option("--save_score", action="store", default='T', type='logical',
 make_option("--save_ref_expr", action="store", default='T', type='logical',
 		help="Save reference expression data [optional]"),
 make_option("--output", action="store", default=NA, type='character',
-		help="Name of output directory [required]"),
+    help="Name of output directory [required]"),
+make_option("--all_mod", action="store", default=F, type='logical',
+    help="Set to T for predictions based on all TWAS models for each gene, rather than the best model alone  [required]"),
 make_option("--pigz", action="store", default=NA, type='character',
 		help="Path to pigz binary [required]"),
 make_option("--targ_pred", action="store", default=T, type='logical',
@@ -244,23 +246,37 @@ if(is.na(opt$score_files)){
 	sink()
 
 	tmp<-foreach(i=1:length(pos$FILE), .combine=c) %dopar% {
-	  # This code is the same as the FUSION make_score.R script
-	  load(pos$FILE[i])
-	  
-	  best = which.min(cv.performance[2,])
+	  if(opt$all_mod == F){
+	 	  # This code is the same as the FUSION make_score.R script
+  	  load(pos$FILE[i])
+  	  
+  	  best = which.min(cv.performance[2,])
+  
+  	  if ( names(best) == "lasso" || names(best) == "enet" ) {
+  		keep = wgt.matrix[,best] != 0
+  	  } else if ( names(best) == "top1" ) {
+  		keep = which.max(wgt.matrix[,best]^2)
+  	  } else { 
+  		keep = 1:nrow(wgt.matrix)
+  	  }
+  	  
+  	  write.table(format(cbind( (snps[,c(2,5,6)]) , wgt.matrix[,best])[keep,],digits=3), paste0(opt$score_files,'/',pos$WGT[i],'.SCORE') , quote=F , row.names=F , col.names=F , sep='\t' )
+  		
+  	  # Write out a snplist for each SCORE file to reduce compution time for scoring
+  		system(paste0('cut -f 1 ',opt$score_files,'/',pos$WGT[i],'.SCORE > ',opt$score_files,'/',pos$WGT[i],'.snplist'))
+	  } else {
+	    load(pos$FILE[i])
 
-	  if ( names(best) == "lasso" || names(best) == "enet" ) {
-		keep = wgt.matrix[,best] != 0
-	  } else if ( names(best) == "top1" ) {
-		keep = which.max(wgt.matrix[,best]^2)
-	  } else { 
-		keep = 1:nrow(wgt.matrix)
+	    for(mod in colnames(wgt.matrix)){
+	      if (mod == "top1" ) {
+	        wgt.matrix[-which.max(wgt.matrix[,mod]^2),mod]<-0
+	      }
+	      
+  	    write.table(format(cbind((snps[,c(2,5,6)]) , wgt.matrix[,mod]),digits=3), paste0(opt$score_files,'/',pos$WGT[i],'.',mod,'.SCORE') , quote=F , row.names=F , col.names=F , sep='\t' )
+	    }
+	    # Write out a snplist for each SCORE file to reduce compution time for scoring
+	    write.table(snps$V2, paste0(opt$score_files,'/',pos$WGT[i],'.snplist') , quote=F , row.names=F , col.names=F , sep='\t' )
 	  }
-	  
-	  write.table(format(cbind( (snps[,c(2,5,6)]) , wgt.matrix[,best])[keep,],digits=3), paste0(opt$score_files,'/',pos$WGT[i],'.SCORE') , quote=F , row.names=F , col.names=F , sep='\t' )
-		
-		# Write out a snplist for each SCORE file to reduce compution time for scoring
-		system(paste0('cut -f 1 ',opt$score_files,'/',pos$WGT[i],'.SCORE > ',opt$score_files,'/',pos$WGT[i],'.snplist'))
 	}
 
 	sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
@@ -297,18 +313,40 @@ if(is.na(opt$ref_expr)){
 	error_table_all<-NULL
 
 	error_table<-foreach(i=1:length(pos$FILE), .combine=rbind) %dopar% {
-		# Calculate feature predictions
-		error<-system(paste0(opt$plink,' --bfile ',opt$ref_ld_chr,pos$CHR[i],' --extract ',opt$score_files,'/',pos$WGT[i],'.snplist --allow-no-sex --read-freq ',opt$ref_maf,pos$CHR[i],'.frq --score ',opt$score_files,'/',pos$WGT[i],'.SCORE 1 2 4 --out ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],' --memory ', floor((opt$memory*0.4)/opt$n_cores)),ignore.stdout=T, ignore.stderr=T)
-		# Delete temporary files and extract feature prediction column to reduce disk space
-		system(paste0("awk '{print $6}' ",opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile | tail -n +2 > ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini'),intern=T)
-		system(paste0("echo ",pos$PANEL,'.',pos$WGT[i]," | cat - ",opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini > ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini_tmp && mv ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini_tmp ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini'),intern=T)
-		system(paste0('rm ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile'),ignore.stdout=T, ignore.stderr=T)
-		system(paste0('rm ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.nosex'),ignore.stdout=T, ignore.stderr=T)
-		data.frame(N=i,Error=error)
+	  
+	  if(opt$all_mod == F){
+	    
+  		# Calculate feature predictions
+  		error<-system(paste0(opt$plink,' --bfile ',opt$ref_ld_chr,pos$CHR[i],' --extract ',opt$score_files,'/',pos$WGT[i],'.snplist --allow-no-sex --read-freq ',opt$ref_maf,pos$CHR[i],'.frq --score ',opt$score_files,'/',pos$WGT[i],'.SCORE 1 2 4 --out ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],' --memory ', floor((opt$memory*0.4)/opt$n_cores)),ignore.stdout=T, ignore.stderr=T)
+  		# Delete temporary files and extract feature prediction column to reduce disk space
+  		system(paste0("awk '{print $6}' ",opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile | tail -n +2 > ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini'),intern=T)
+  		system(paste0("echo ",pos$PANEL,'.',pos$WGT[i]," | cat - ",opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini > ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini_tmp && mv ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini_tmp ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile_mini'),intern=T)
+  		system(paste0('rm ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile'),ignore.stdout=T, ignore.stderr=T)
+  		system(paste0('rm ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.nosex'),ignore.stdout=T, ignore.stderr=T)
+  		data.frame(N=i,Error=error)
+  		
+	  } else {
+	    
+	    load(pos$FILE[i])
+	    error_tmp<-NULL
+	    for(mod in colnames(wgt.matrix)){
+  	    # Calculate feature predictions
+  	    error<-system(paste0(opt$plink,' --bfile ',opt$ref_ld_chr,pos$CHR[i],' --extract ',opt$score_files,'/',pos$WGT[i],'.snplist --allow-no-sex --read-freq ',opt$ref_maf,pos$CHR[i],'.frq --score ',opt$score_files,'/',pos$WGT[i],'.',mod,'.SCORE 1 2 4 --out ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,' --memory ', floor((opt$memory*0.4)/opt$n_cores)),ignore.stdout=T, ignore.stderr=T)
+  	    if(file.exists(paste0('/scratch/groups/biomarkers-brc-mh/TWAS_resource/eQTL_to_TWAS/data/1kg_pred_exp/YFS.BLOOD.RNAARR/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.profile'))){
+    	    # Delete temporary files and extract feature prediction column to reduce disk space
+    	    system(paste0("awk '{print $6}' ",opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.profile | tail -n +2 > ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.profile_mini'),intern=T)
+    	    system(paste0("echo ",pos$PANEL,'.',pos$WGT[i],'.',mod," | cat - ",opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.profile_mini > ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.profile_mini_tmp && mv ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.profile_mini_tmp ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.profile_mini'),intern=T)
+    	    system(paste0('rm ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.profile'),ignore.stdout=T, ignore.stderr=T)
+    	    system(paste0('rm ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.nosex'),ignore.stdout=T, ignore.stderr=T)
+    	    error_tmp<-rbind(error_tmp, data.frame(N=i,Model=mod,Error=error))
+  	    }
+	    }
+	    error_tmp
+	  }
 	}
 
 	# Split feature predictions into list of <1000 files, then paste each list of files in batches, and then past all batches. 
-	system(paste0("ls -1 ", opt$output,"/REF_PROFILE_FILES/*.profile_mini | split -l 1000 -a 4 -d - ",opt$output,"/profile_mini_lists"))
+	system(paste0("find ", opt$output,"/REF_PROFILE_FILES -type f -name '*.profile_mini' | split -l 1000 -a 4 -d - ",opt$output,"/profile_mini_lists"))
 	system(paste0("echo ", opt$output, "/REF_PROFILE_FILES/REF.IDs | cat - ",opt$output,"/profile_mini_lists0000 > ",opt$output,"/profile_mini_lists0000_temp && mv ",opt$output,"/profile_mini_lists0000_temp ",opt$output,"/profile_mini_lists0000"))
 	tmp<-foreach(k=list.files(path=opt$output, pattern="profile_mini_lists*"), .combine=c) %dopar% {
 		system(paste0("paste $(cat ",opt$output,"/",k,") > ", opt$output,"/merge_",k))
@@ -456,29 +494,60 @@ if(opt$targ_pred == T){
 		for(panel in unique(pos_chr$PANEL)){
 			pos_chr_panel<-pos_chr[pos_chr$PANEL == panel,]	
 			TARG_expr<-foreach(i=1:length(pos_chr_panel$FILE), .combine=cbind) %dopar% {
-				# Calculate feature predictions
-				tmp<-system(paste0(opt$plink,' --bfile ',opt$output,'/targ_chr',chr,' --extract ',opt$score_files,'/',pos_chr_panel$WGT[i],'.snplist --allow-no-sex --read-freq ',opt$ref_maf,chr,'.frq --score ',opt$score_files,'/',pos_chr_panel$WGT[i],'.SCORE 1 2 4 --out ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],' --memory ', floor((opt$memory*0.4)/opt$n_cores)),ignore.stdout=T, ignore.stderr=T)
-
-				if(tmp != 0){ 
-						# Delete temporary files
-						system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.*'),ignore.stdout=T, ignore.stderr=T)
-						return(NA)
-				}
-				
-				# Read in the predictions, extract SCORE column and change header.
-				feature<-fread(paste0(opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.profile'), nThread=1)
-				feature<-feature[,6]
-				names(feature)<-paste0(panel,'.',pos_chr_panel$WGT[i])
-				
-				# Delete temporary files
-				system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.*'),ignore.stdout=T, ignore.stderr=T)
-				
-				# Scale expression to the reference and round
-				feature<-feature-ref_scale$Mean[ref_scale$ID == names(feature)]
-				feature<-feature/ref_scale$SD[ref_scale$ID == names(feature)]
-				feature<-round(feature,3)
-
-				feature
+			  if(opt$all_mod == F){
+			    
+  				# Calculate feature predictions
+  				tmp<-system(paste0(opt$plink,' --bfile ',opt$output,'/targ_chr',chr,' --extract ',opt$score_files,'/',pos_chr_panel$WGT[i],'.snplist --allow-no-sex --read-freq ',opt$ref_maf,chr,'.frq --score ',opt$score_files,'/',pos_chr_panel$WGT[i],'.SCORE 1 2 4 --out ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],' --memory ', floor((opt$memory*0.4)/opt$n_cores)),ignore.stdout=T, ignore.stderr=T)
+  
+  				if(tmp != 0){ 
+  						# Delete temporary files
+  						system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.*'),ignore.stdout=T, ignore.stderr=T)
+  						return(NA)
+  				}
+  				
+  				# Read in the predictions, extract SCORE column and change header.
+  				feature<-fread(paste0(opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.profile'), nThread=1)
+  				feature<-feature[,6]
+  				names(feature)<-paste0(panel,'.',pos_chr_panel$WGT[i])
+  				
+  				# Delete temporary files
+  				system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.*'),ignore.stdout=T, ignore.stderr=T)
+  				
+  				# Scale expression to the reference and round
+  				feature<-feature-ref_scale$Mean[ref_scale$ID == names(feature)]
+  				feature<-feature/ref_scale$SD[ref_scale$ID == names(feature)]
+  				feature<-round(feature,3)
+  				
+  				feature
+			  } else {
+			    load(pos$FILE[i])
+			    feature_tmp<-NULL
+			    for(mod in colnames(wgt.matrix)){
+			      # Calculate feature predictions
+			      tmp<-system(paste0(opt$plink,' --bfile ',opt$output,'/targ_chr',chr,' --extract ',opt$score_files,'/',pos_chr_panel$WGT[i],'.snplist --allow-no-sex --read-freq ',opt$ref_maf,chr,'.frq --score ',opt$score_files,'/',pos_chr_panel$WGT[i],'.',mod,'.SCORE 1 2 4 --out ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.',mod,' --memory ', floor((opt$memory*0.4)/opt$n_cores)),ignore.stdout=T, ignore.stderr=T)
+			      
+			      if(tmp != 0){ 
+			        # Delete temporary files
+			        system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.',mod,'.*'),ignore.stdout=T, ignore.stderr=T)
+			        return(NA)
+			      }
+			      
+			      # Read in the predictions, extract SCORE column and change header.
+			      feature<-fread(paste0(opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.',mod,'.profile'), nThread=1)
+			      feature<-feature[,6]
+			      names(feature)<-paste0(panel,'.',pos_chr_panel$WGT[i],'.',mod)
+			      
+			      # Delete temporary files
+			      system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.',mod,'.*'),ignore.stdout=T, ignore.stderr=T)
+			      
+			      # Scale expression to the reference and round
+			      feature<-feature-ref_scale$Mean[ref_scale$ID == names(feature)]
+			      feature<-feature/ref_scale$SD[ref_scale$ID == names(feature)]
+			      feature<-round(feature,3)
+			      feature_tmp<-cbind(feature_tmp, feature)
+			    }
+			  feature_tmp
+			  }
 			}
 			
 			# Remove any columns containing NA
@@ -521,9 +590,9 @@ if(opt$targ_pred == T){
 	cat('Done!\n')
 	sink()
 
-system(paste0("rm -r ",opt$output,"/TARG_PROFILE_FILES"))
+  system(paste0("rm -r ",opt$output,"/TARG_PROFILE_FILES"))
 }
-	
+
 # Delete temporary files
 system(paste0("rm ",opt$output,"/ref_indiv*"))
 system(paste0("rm ",opt$output,"/ref_keep"))
