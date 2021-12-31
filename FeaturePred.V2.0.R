@@ -332,7 +332,7 @@ if(is.na(opt$ref_expr)){
 	    for(mod in colnames(wgt.matrix)){
   	    # Calculate feature predictions
   	    error<-system(paste0(opt$plink,' --bfile ',opt$ref_ld_chr,pos$CHR[i],' --extract ',opt$score_files,'/',pos$WGT[i],'.snplist --allow-no-sex --read-freq ',opt$ref_maf,pos$CHR[i],'.frq --score ',opt$score_files,'/',pos$WGT[i],'.',mod,'.SCORE 1 2 4 --out ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,' --memory ', floor((opt$memory*0.4)/opt$n_cores)),ignore.stdout=T, ignore.stderr=T)
-  	    if(file.exists(paste0('/scratch/groups/biomarkers-brc-mh/TWAS_resource/eQTL_to_TWAS/data/1kg_pred_exp/YFS.BLOOD.RNAARR/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.profile'))){
+  	    if(file.exists(paste0(opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.profile'))){
     	    # Delete temporary files and extract feature prediction column to reduce disk space
     	    system(paste0("awk '{print $6}' ",opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.profile | tail -n +2 > ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.profile_mini'),intern=T)
     	    system(paste0("echo ",pos$PANEL,'.',pos$WGT[i],'.',mod," | cat - ",opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.profile_mini > ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.profile_mini_tmp && mv ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.profile_mini_tmp ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.',mod,'.profile_mini'),intern=T)
@@ -464,7 +464,7 @@ if(opt$targ_pred == T){
 	gc()
 	
 	# Calculate and process gene expression by chromosome to avoid large memory requirement.
-	for(chr in CHROMS){
+	for(chr in CHROMS[CHROMS %in% unique(pos$CHR)]){
 			
 		# Create a directory for predicted expression of genes on chromosome 
 		system(paste0('mkdir ',opt$output,'/TARG_PROFILE_FILES/chr',chr))
@@ -502,7 +502,7 @@ if(opt$targ_pred == T){
   				if(tmp != 0){ 
   						# Delete temporary files
   						system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.*'),ignore.stdout=T, ignore.stderr=T)
-  						return(NA)
+  						next
   				}
   				
   				# Read in the predictions, extract SCORE column and change header.
@@ -520,7 +520,7 @@ if(opt$targ_pred == T){
   				
   				feature
 			  } else {
-			    load(pos$FILE[i])
+			    load(pos_chr_panel$FILE[i])
 			    feature_tmp<-NULL
 			    for(mod in colnames(wgt.matrix)){
 			      # Calculate feature predictions
@@ -529,7 +529,7 @@ if(opt$targ_pred == T){
 			      if(tmp != 0){ 
 			        # Delete temporary files
 			        system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.',mod,'.*'),ignore.stdout=T, ignore.stderr=T)
-			        return(NA)
+			        next
 			      }
 			      
 			      # Read in the predictions, extract SCORE column and change header.
