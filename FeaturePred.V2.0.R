@@ -410,7 +410,7 @@ if(is.na(opt$ref_expr)){
 		REF_expr_scaled[ , (names(REF_expr_scaled)[-1:-2]) := lapply(.SD, function(x) round(as.numeric(scale(x)),3)), .SDcols = (names(REF_expr_scaled)[-1:-2])]
 		for(panel in unique(pos$PANEL)){
 			REF_expr_scaled_pan<-REF_expr_scaled[,c(T,T,grepl(panel, names(REF_expr_scaled)[-1:-2])), with=FALSE]
-			fwrite(REF_expr_scaled_pan, paste0(opt$output,'/Reference_Expression/Reference_Expression_',panel,'.txt'), nThread = opt$n_cores, sep=' ')
+			fwrite(REF_expr_scaled_pan, paste0(opt$output,'/Reference_Expression/Reference_Expression_',panel,'.txt'), nThread = opt$n_cores, sep=' ', na='NA')
 			system(paste0(opt$pigz,' ',opt$output,'/Reference_Expression/Reference_Expression_',panel,'.txt'))
 		}
 	}
