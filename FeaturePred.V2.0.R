@@ -110,11 +110,10 @@ if(opt$targ_pred == T){
 	sink()
 
 	# Read in the SNPs in reference sample
-	ref_ld_chr_files<-sub('.*/', '', opt$ref_ld_chr)
-	ref_ld_chr_dir<-sub(ref_ld_chr_files, '', opt$ref_ld_chr)
-	temp = list.files(path=ref_ld_chr_dir, pattern=paste0(ref_ld_chr_files,'*.bim'))
-
-	Ref<-do.call(rbind, lapply(paste0(ref_ld_chr_dir,temp), function(x) fread(x, nThread=opt$n_cores)))
+	Ref<-NULL
+	for(i in 1:22){
+	  Ref<-rbind(Ref, fread(paste0(opt$ref_ld_chr,i,'.bim')))
+	}
 
 	if(sum(duplicated(Ref$V2)) > 0){
 		sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
@@ -123,12 +122,11 @@ if(opt$targ_pred == T){
 		q()
 	}
 
-	# Read in the SNPs in target sample
-	PLINK_prefix_chr_files<-sub('.*/', '', opt$PLINK_prefix_chr)
-	PLINK_prefix_chr_dir<-sub(PLINK_prefix_chr_files, '', opt$PLINK_prefix_chr)
-	temp = list.files(path=PLINK_prefix_chr_dir, pattern=paste0(PLINK_prefix_chr_files,'.*.bim'))
-	Target<-do.call(rbind, lapply(paste0(PLINK_prefix_chr_dir,temp), function(x) fread(x, nThread=opt$n_cores)))
-
+	Target<-NULL
+	for(i in 1:22){
+	  Target<-rbind(Target, fread(paste0(opt$PLINK_prefix_chr,i,'.bim')))
+	}
+	
 	if(sum(duplicated(Ref$V2)) > 0){
 		sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
 		cat('Duplicates are present in the target data.\n')
@@ -206,7 +204,7 @@ if(opt$targ_pred == T){
 	sink()
 
 	# Save list of SNPs that intersect the target and ref
-	fwrite(list(incl),paste0(opt$output,'/intersect.snplist'),col.names=F)
+	fwrite(list(incl),paste0(opt$output,'/intersect.snplist'),col.names=F, na='NA', quote=F)
 
 	rm(Ref)
 	rm(Target)
@@ -405,12 +403,12 @@ if(is.na(opt$ref_expr)){
 
 	if(opt$save_ref_expr == T){
 		system(paste0('mkdir ',opt$output,'/Reference_Expression'))
-		fwrite(ref_scale, paste0(opt$output,'/Reference_Expression/Scale.txt'), sep=' ', nThread=opt$n_cores)
+		fwrite(ref_scale, paste0(opt$output,'/Reference_Expression/Scale.txt'), sep=' ', nThread=opt$n_cores, na='NA')
 		REF_expr_scaled<-REF_expr
 		REF_expr_scaled[ , (names(REF_expr_scaled)[-1:-2]) := lapply(.SD, function(x) round(as.numeric(scale(x)),3)), .SDcols = (names(REF_expr_scaled)[-1:-2])]
 		for(panel in unique(pos$PANEL)){
 			REF_expr_scaled_pan<-REF_expr_scaled[,c(T,T,grepl(panel, names(REF_expr_scaled)[-1:-2])), with=FALSE]
-			fwrite(REF_expr_scaled_pan, paste0(opt$output,'/Reference_Expression/Reference_Expression_',panel,'.txt'), nThread = opt$n_cores, sep=' ')
+			fwrite(REF_expr_scaled_pan, paste0(opt$output,'/Reference_Expression/Reference_Expression_',panel,'.txt'), nThread = opt$n_cores, sep=' ', na='NA')
 			system(paste0(opt$pigz,' ',opt$output,'/Reference_Expression/Reference_Expression_',panel,'.txt'))
 		}
 	}
@@ -469,16 +467,36 @@ if(opt$targ_pred == T){
 		# Create a directory for predicted expression of genes on chromosome 
 		system(paste0('mkdir ',opt$output,'/TARG_PROFILE_FILES/chr',chr))
 
-		# Extract SNPs in reference and flip SNPs if necessary.
-		if(n_flip > 0){
-				system(paste0(opt$plink,' --bfile ',opt$PLINK_prefix_chr,chr,' --make-bed --extract ',opt$output,'/intersect.snplist --flip ',opt$output,'/flip.snplist --out ',opt$output,'/targ_chr',chr,' --memory ',floor((opt$memory*0.4))),ignore.stdout=T, ignore.stderr=T)
-		} else {
-				system(paste0(opt$plink,' --bfile ',opt$PLINK_prefix_chr,chr,' --make-bed --extract ',opt$output,'/intersect.snplist --out ',opt$output,'/targ_chr',chr,' --memory ',floor((opt$memory*0.4))),ignore.stdout=T, ignore.stderr=T)
-		}
+	  # Remove any duplicate or 3+ allele variants
+	  system(paste0(opt$plink,' --bfile ',opt$PLINK_prefix_chr,chr,' --bmerge ',opt$PLINK_prefix_chr,chr,' --merge-mode 6 --make-bed --out ',opt$output,'/targ_chr',chr,'_noDup'))
+
+	  if(file.exists(paste0(opt$output,'/targ_chr',chr,'_noDup.missnp'))){
+	    missnp<-fread(paste0(opt$output,'/targ_chr',chr,'_noDup.missnp'), header=F)$V1
+	    log_chr<-readLines(paste0(opt$output,'/targ_chr',chr,'_noDup.log'))
+	    log_chr<-log_chr[grepl("Warning: Multiple positions seen for variant", log_chr)]
+	    log_chr<-unique(gsub("'\\.","",gsub(".*variant '","",log_chr)))
+	    missnp<-c(missnp, log_chr)
+	    write.table(missnp, paste0(opt$output,'/targ_chr',chr,'_noDup.missnp'), col.names=F, row.names=F, quote=F)
+	    
+	    # Extract SNPs in reference and flip SNPs if necessary.
+	    # And remove any duplicate 3+ allele variants
+	    if(n_flip > 0){
+	      system(paste0(opt$plink,' --bfile ',opt$PLINK_prefix_chr,chr,' --make-bed --exclude ',opt$output,'/targ_chr',chr,'_noDup.missnp --extract ',opt$output,'/intersect.snplist --flip ',opt$output,'/flip.snplist --out ',opt$output,'/targ_chr',chr,' --memory ',floor((opt$memory*0.4))))
+	    } else {
+	      system(paste0(opt$plink,' --bfile ',opt$PLINK_prefix_chr,chr,' --make-bed --exclude ',opt$output,'/targ_chr',chr,'_noDup.missnp --extract ',opt$output,'/intersect.snplist --out ',opt$output,'/targ_chr',chr,' --memory ',floor((opt$memory*0.4))))
+	    }
+	  } else {
+	    # Extract SNPs in reference and flip SNPs if necessary.
+	    if(n_flip > 0){
+	      system(paste0(opt$plink,' --bfile ',opt$PLINK_prefix_chr,chr,' --make-bed --extract ',opt$output,'/intersect.snplist --flip ',opt$output,'/flip.snplist --out ',opt$output,'/targ_chr',chr,' --memory ',floor((opt$memory*0.4))))
+	    } else {
+	      system(paste0(opt$plink,' --bfile ',opt$PLINK_prefix_chr,chr,' --make-bed --extract ',opt$output,'/intersect.snplist --out ',opt$output,'/targ_chr',chr,' --memory ',floor((opt$memory*0.4))))
+	    }
+	  }
 
 		# Merge and remove single individual with the target data to insert missing reference SNPs.
-		system(paste0(opt$plink,' --bfile ',opt$output,'/targ_chr',chr,' --bmerge ',opt$output,'/ref_indiv_chr',chr,' --make-bed --out ',opt$output,'/ref_targ_chr',chr,' --memory ',floor((opt$memory*0.4))),ignore.stdout=T, ignore.stderr=T)
-		system(paste0(opt$plink,' --bfile ',opt$output,'/ref_targ_chr',chr,' --remove ',opt$output,'/ref_indiv_chr',chr,'.fam --make-bed --out ',opt$output,'/targ_chr',chr,' --memory ',floor((opt$memory*0.4))),ignore.stdout=T, ignore.stderr=T)
+		system(paste0(opt$plink,' --bfile ',opt$output,'/targ_chr',chr,' --bmerge ',opt$output,'/ref_indiv_chr',chr,' --make-bed --out ',opt$output,'/ref_targ_chr',chr,' --memory ',floor((opt$memory*0.4))))
+		system(paste0(opt$plink,' --bfile ',opt$output,'/ref_targ_chr',chr,' --remove ',opt$output,'/ref_indiv_chr',chr,'.fam --make-bed --out ',opt$output,'/targ_chr',chr,' --memory ',floor((opt$memory*0.4))))
 
 		# Delete the temporary files
 		system(paste0('rm ',opt$output,'/ref_targ_chr*'))
@@ -554,7 +572,7 @@ if(opt$targ_pred == T){
 			TARG_expr<-TARG_expr[,which(unlist(lapply(TARG_expr, function(x)!is.na(x[1])))),with=F]
 			
 			# Save TARG_expr and compress
-			fwrite(TARG_expr, paste0(opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_expression.txt'), nThread = opt$n_cores, sep=' ')
+			fwrite(TARG_expr, paste0(opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_expression.txt'), nThread = opt$n_cores, sep=' ', na='NA')
 			system(paste0(opt$pigz,' ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_expression.txt'))
 			
 			# Delete TARG_expr and run garbage collection. 
