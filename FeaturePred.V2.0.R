@@ -480,10 +480,12 @@ if(opt$targ_pred == T){
 	    
 	    # Extract SNPs in reference and flip SNPs if necessary.
 	    # And remove any duplicate 3+ allele variants
+	    system(paste0(opt$plink,' --bfile ',opt$PLINK_prefix_chr,chr,' --make-bed --exclude ',opt$output,'/targ_chr',chr,'_noDup.missnp --out ',opt$output,'/targ_chr',chr,' --memory ',floor((opt$memory*0.4))))
+
 	    if(n_flip > 0){
-	      system(paste0(opt$plink,' --bfile ',opt$PLINK_prefix_chr,chr,' --make-bed --exclude ',opt$output,'/targ_chr',chr,'_noDup.missnp --extract ',opt$output,'/intersect.snplist --flip ',opt$output,'/flip.snplist --out ',opt$output,'/targ_chr',chr,' --memory ',floor((opt$memory*0.4))))
+	      system(paste0(opt$plink,' --bfile ',opt$output,'/targ_chr',chr,' --make-bed --extract ',opt$output,'/intersect.snplist --flip ',opt$output,'/flip.snplist --out ',opt$output,'/targ_chr',chr,' --memory ',floor((opt$memory*0.4))))
 	    } else {
-	      system(paste0(opt$plink,' --bfile ',opt$PLINK_prefix_chr,chr,' --make-bed --exclude ',opt$output,'/targ_chr',chr,'_noDup.missnp --extract ',opt$output,'/intersect.snplist --out ',opt$output,'/targ_chr',chr,' --memory ',floor((opt$memory*0.4))))
+	      system(paste0(opt$plink,' --bfile ',opt$output,'/targ_chr',chr,' --make-bed --extract ',opt$output,'/intersect.snplist --out ',opt$output,'/targ_chr',chr,' --memory ',floor((opt$memory*0.4))))
 	    }
 	  } else {
 	    # Extract SNPs in reference and flip SNPs if necessary.
