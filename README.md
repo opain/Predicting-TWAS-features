@@ -4,8 +4,6 @@ FeaturePred is a tool designed to simplify the process of predicting features (e
 
 Access to weights files and more information on FUSION can be found [here](http://gusevlab.org/projects/fusion/).
 
-
-
 ## Getting started
 
 ### Prerequisites
