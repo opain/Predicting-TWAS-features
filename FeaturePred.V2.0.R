@@ -233,10 +233,24 @@ pos$WGT<-gsub('.wgt.RDat','',pos$WGT)
 pos$WGT<-gsub('.*/','',pos$WGT)
 
 if(is.na(opt$score_files)){
+  
+  # Read in the SNPs in reference sample
+  Ref<-NULL
+  for(i in 1:22){
+    Ref<-rbind(Ref, fread(paste0(opt$ref_ld_chr,i,'.bim')))
+  }
+  
+  Ref$IUPAC<-NA
+  Ref$IUPAC[Ref$V5 == 'A' & Ref$V6 =='T' | Ref$V5 == 'T' & Ref$V6 =='A']<-'W'
+  Ref$IUPAC[Ref$V5 == 'C' & Ref$V6 =='G' | Ref$V5 == 'G' & Ref$V6 =='C']<-'S'
+  Ref$IUPAC[Ref$V5 == 'A' & Ref$V6 =='G' | Ref$V5 == 'G' & Ref$V6 =='A']<-'R'
+  Ref$IUPAC[Ref$V5 == 'C' & Ref$V6 =='T' | Ref$V5 == 'T' & Ref$V6 =='C']<-'Y'
+  Ref$IUPAC[Ref$V5 == 'G' & Ref$V6 =='T' | Ref$V5 == 'T' & Ref$V6 =='G']<-'K'
+  Ref$IUPAC[Ref$V5 == 'A' & Ref$V6 =='C' | Ref$V5 == 'C' & Ref$V6 =='A']<-'M'
+  
 	opt$score_files<-paste0(opt$output,'/SCORE_FILES')
 	
 	system(paste0('mkdir -p ',opt$score_files))
-
 
 	# Create SCORE file for each set of weights using FUSION make_score.R
 	sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
@@ -244,10 +258,40 @@ if(is.na(opt$score_files)){
 	sink()
 
 	tmp<-foreach(i=1:length(pos$FILE), .combine=c) %dopar% {
+	  load(pos$FILE[i])
+	  
+	  # Resolve strand flips with reference
+	  snps$IUPAC<-NA
+	  snps$IUPAC[snps$V5 == 'A' & snps$V6 =='T' | snps$V5 == 'T' & snps$V6 =='A']<-'W'
+	  snps$IUPAC[snps$V5 == 'C' & snps$V6 =='G' | snps$V5 == 'G' & snps$V6 =='C']<-'S'
+	  snps$IUPAC[snps$V5 == 'A' & snps$V6 =='G' | snps$V5 == 'G' & snps$V6 =='A']<-'R'
+	  snps$IUPAC[snps$V5 == 'C' & snps$V6 =='T' | snps$V5 == 'T' & snps$V6 =='C']<-'Y'
+	  snps$IUPAC[snps$V5 == 'G' & snps$V6 =='T' | snps$V5 == 'T' & snps$V6 =='G']<-'K'
+	  snps$IUPAC[snps$V5 == 'A' & snps$V6 =='C' | snps$V5 == 'C' & snps$V6 =='A']<-'M'
+	  
+	  snps_ref<-merge(snps, Ref[,c('V2','V5','V6','IUPAC')], by='V2')
+	  
+	  flip_list<-		snps_ref$V2[snps_ref$IUPAC.x == 'R' & snps_ref$IUPAC.y == 'Y' | 
+	                              snps_ref$IUPAC.x == 'Y' & snps_ref$IUPAC.y == 'R' | 
+	                              snps_ref$IUPAC.x == 'K' & snps_ref$IUPAC.y == 'M' |
+	                              snps_ref$IUPAC.x == 'M' & snps_ref$IUPAC.y == 'K' ]
+	  
+	  snp_allele_comp<-function(x=NA){
+	    x_new<-x
+	    x_new[x == 'A']<-'T'
+	    x_new[x == 'T']<-'A'
+	    x_new[x == 'G']<-'C'
+	    x_new[x == 'C']<-'G'
+	    x_new[!(x %in% c('A','T','G','C'))]<-NA
+	    return(x_new)
+	  }
+	  
+	  snps$IUPAC<-NULL
+	  snps$V5[snps$V2 %in% flip_list]<-snp_allele_comp(snps$V5[snps$V2 %in% flip_list])
+	  snps$V6[snps$V2 %in% flip_list]<-snp_allele_comp(snps$V6[snps$V2 %in% flip_list])
+	  
 	  if(opt$all_mod == F){
 	 	  # This code is the same as the FUSION make_score.R script
-  	  load(pos$FILE[i])
-  	  
   	  best = which.min(cv.performance[2,])
   
   	  if ( names(best) == "lasso" || names(best) == "enet" ) {
@@ -258,7 +302,7 @@ if(is.na(opt$score_files)){
   		keep = 1:nrow(wgt.matrix)
   	  }
   	  
-  	  write.table(format(cbind( (snps[,c(2,5,6)]) , wgt.matrix[,best])[keep,],digits=3), paste0(opt$score_files,'/',pos$WGT[i],'.SCORE') , quote=F , row.names=F , col.names=F , sep='\t' )
+  	  write.table(format(cbind( (snps[,c(2,5,6)]) , wgt.matrix[,best])[keep,], digits=3), paste0(opt$score_files,'/',pos$WGT[i],'.SCORE') , quote=F , row.names=F , col.names=F , sep='\t' )
   		
   	  # Write out a snplist for each SCORE file to reduce compution time for scoring
   		system(paste0('cut -f 1 ',opt$score_files,'/',pos$WGT[i],'.SCORE > ',opt$score_files,'/',pos$WGT[i],'.snplist'))
