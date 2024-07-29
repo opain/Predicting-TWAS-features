@@ -126,7 +126,7 @@ if(opt$targ_pred == T){
 	for(i in 1:22){
 	  Target<-rbind(Target, fread(paste0(opt$PLINK_prefix_chr,i,'.bim')))
 	}
-	
+
 	if(sum(duplicated(Ref$V2)) > 0){
 		sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
 		cat('Duplicates are present in the target data.\n')
@@ -147,12 +147,12 @@ if(opt$targ_pred == T){
 	  sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
 	  cat(sum(is.na(Ref$IUPAC)),"non-SNP variants removed from reference data (Ref_non_SNPs.txt).\n")
 	  sink()
-	  
+
 	  write.table(Ref[is.na(Ref$IUPAC),], paste0(opt$output,'/Ref_non_SNPs.txt'), col.names=T, row.names=F, quote=F)
-	  
+
 	  Ref<-Ref[!is.na(Ref$IUPAC),]
 	}
-	
+
 	Target$IUPAC<-NA
 	Target$IUPAC[Target$V5 == 'A' & Target$V6 =='T' | Target$V5 == 'T' & Target$V6 =='A']<-'W'
 	Target$IUPAC[Target$V5 == 'C' & Target$V6 =='G' | Target$V5 == 'G' & Target$V6 =='C']<-'S'
@@ -165,16 +165,16 @@ if(opt$targ_pred == T){
 	  sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
 	  cat(sum(is.na(Target$IUPAC)),'non-SNP variants removed from target data (Targ_non_SNPs.txt).\n')
 	  sink()
-	  
+
 	  write.table(Target[is.na(Target$IUPAC),], paste0(opt$output,'/Targ_non_SNPs.txt'), col.names=T, row.names=F, quote=F)
-	  
+
 	  Target<-Target[!is.na(Target$IUPAC),]
 	}
-	
+
 	Ref_Target<-merge(Ref, Target, by='V2')
 
-	n_flip<-sum(Ref_Target$IUPAC.x == 'R' & Ref_Target$IUPAC.y == 'Y' | 
-							Ref_Target$IUPAC.x == 'Y' & Ref_Target$IUPAC.y == 'R' | 
+	n_flip<-sum(Ref_Target$IUPAC.x == 'R' & Ref_Target$IUPAC.y == 'Y' |
+							Ref_Target$IUPAC.x == 'Y' & Ref_Target$IUPAC.y == 'R' |
 							Ref_Target$IUPAC.x == 'K' & Ref_Target$IUPAC.y == 'M' |
 							Ref_Target$IUPAC.x == 'M' & Ref_Target$IUPAC.y == 'K' )
 
@@ -182,16 +182,16 @@ if(opt$targ_pred == T){
 		sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
 		cat(n_flip,'SNPs will be flipped!\n')
 		sink()
-		flip_list<-		Ref_Target$V2[Ref_Target$IUPAC.x == 'R' & Ref_Target$IUPAC.y == 'Y' | 
-									Ref_Target$IUPAC.x == 'Y' & Ref_Target$IUPAC.y == 'R' | 
+		flip_list<-		Ref_Target$V2[Ref_Target$IUPAC.x == 'R' & Ref_Target$IUPAC.y == 'Y' |
+									Ref_Target$IUPAC.x == 'Y' & Ref_Target$IUPAC.y == 'R' |
 									Ref_Target$IUPAC.x == 'K' & Ref_Target$IUPAC.y == 'M' |
 									Ref_Target$IUPAC.x == 'M' & Ref_Target$IUPAC.y == 'K' ]
 		write.table(flip_list, paste0(opt$output,'/flip.snplist'), col.names=F, row.names=F, quote=F)
 	}
 
 	# Idenitfy variants that match
-	incl<-Ref_Target$V2[	Ref_Target$IUPAC.x == 'R' & Ref_Target$IUPAC.y == 'R' | 
-												Ref_Target$IUPAC.x == 'Y' & Ref_Target$IUPAC.y == 'Y' | 
+	incl<-Ref_Target$V2[	Ref_Target$IUPAC.x == 'R' & Ref_Target$IUPAC.y == 'R' |
+												Ref_Target$IUPAC.x == 'Y' & Ref_Target$IUPAC.y == 'Y' |
 												Ref_Target$IUPAC.x == 'K' & Ref_Target$IUPAC.y == 'K' |
 												Ref_Target$IUPAC.x == 'M' & Ref_Target$IUPAC.y == 'M' ]
 
@@ -233,13 +233,13 @@ pos$WGT<-gsub('.wgt.RDat','',pos$WGT)
 pos$WGT<-gsub('.*/','',pos$WGT)
 
 if(is.na(opt$score_files)){
-  
+
   # Read in the SNPs in reference sample
   Ref<-NULL
   for(i in 1:22){
     Ref<-rbind(Ref, fread(paste0(opt$ref_ld_chr,i,'.bim')))
   }
-  
+
   Ref$IUPAC<-NA
   Ref$IUPAC[Ref$V5 == 'A' & Ref$V6 =='T' | Ref$V5 == 'T' & Ref$V6 =='A']<-'W'
   Ref$IUPAC[Ref$V5 == 'C' & Ref$V6 =='G' | Ref$V5 == 'G' & Ref$V6 =='C']<-'S'
@@ -247,9 +247,9 @@ if(is.na(opt$score_files)){
   Ref$IUPAC[Ref$V5 == 'C' & Ref$V6 =='T' | Ref$V5 == 'T' & Ref$V6 =='C']<-'Y'
   Ref$IUPAC[Ref$V5 == 'G' & Ref$V6 =='T' | Ref$V5 == 'T' & Ref$V6 =='G']<-'K'
   Ref$IUPAC[Ref$V5 == 'A' & Ref$V6 =='C' | Ref$V5 == 'C' & Ref$V6 =='A']<-'M'
-  
+
 	opt$score_files<-paste0(opt$output,'/SCORE_FILES')
-	
+
 	system(paste0('mkdir -p ',opt$score_files))
 
 	# Create SCORE file for each set of weights using FUSION make_score.R
@@ -259,7 +259,7 @@ if(is.na(opt$score_files)){
 
 	tmp<-foreach(i=1:length(pos$FILE), .combine=c) %dopar% {
 	  load(pos$FILE[i])
-	  
+
 	  # Resolve strand flips with reference
 	  snps$IUPAC<-NA
 	  snps$IUPAC[snps$V5 == 'A' & snps$V6 =='T' | snps$V5 == 'T' & snps$V6 =='A']<-'W'
@@ -268,14 +268,14 @@ if(is.na(opt$score_files)){
 	  snps$IUPAC[snps$V5 == 'C' & snps$V6 =='T' | snps$V5 == 'T' & snps$V6 =='C']<-'Y'
 	  snps$IUPAC[snps$V5 == 'G' & snps$V6 =='T' | snps$V5 == 'T' & snps$V6 =='G']<-'K'
 	  snps$IUPAC[snps$V5 == 'A' & snps$V6 =='C' | snps$V5 == 'C' & snps$V6 =='A']<-'M'
-	  
+
 	  snps_ref<-merge(snps, Ref[,c('V2','V5','V6','IUPAC')], by='V2')
-	  
-	  flip_list<-		snps_ref$V2[snps_ref$IUPAC.x == 'R' & snps_ref$IUPAC.y == 'Y' | 
-	                              snps_ref$IUPAC.x == 'Y' & snps_ref$IUPAC.y == 'R' | 
+
+	  flip_list<-		snps_ref$V2[snps_ref$IUPAC.x == 'R' & snps_ref$IUPAC.y == 'Y' |
+	                              snps_ref$IUPAC.x == 'Y' & snps_ref$IUPAC.y == 'R' |
 	                              snps_ref$IUPAC.x == 'K' & snps_ref$IUPAC.y == 'M' |
 	                              snps_ref$IUPAC.x == 'M' & snps_ref$IUPAC.y == 'K' ]
-	  
+
 	  snp_allele_comp<-function(x=NA){
 	    x_new<-x
 	    x_new[x == 'A']<-'T'
@@ -285,25 +285,22 @@ if(is.na(opt$score_files)){
 	    x_new[!(x %in% c('A','T','G','C'))]<-NA
 	    return(x_new)
 	  }
-	  
+
 	  snps$IUPAC<-NULL
 	  snps$V5[snps$V2 %in% flip_list]<-snp_allele_comp(snps$V5[snps$V2 %in% flip_list])
 	  snps$V6[snps$V2 %in% flip_list]<-snp_allele_comp(snps$V6[snps$V2 %in% flip_list])
-	  
+
 	  if(opt$all_mod == F){
-	 	  # This code is the same as the FUSION make_score.R script
   	  best = which.min(cv.performance[2,])
-  
-  	  if ( names(best) == "lasso" || names(best) == "enet" ) {
-  		keep = wgt.matrix[,best] != 0
-  	  } else if ( names(best) == "top1" ) {
-  		keep = which.max(wgt.matrix[,best]^2)
-  	  } else { 
-  		keep = 1:nrow(wgt.matrix)
+
+      if ( names(best) == "top1" ) {
+    		keep = which.max(wgt.matrix[,best]^2)
+  	  } else {
+    		keep = 1:nrow(wgt.matrix)
   	  }
-  	  
+
   	  write.table(format(cbind( (snps[,c(2,5,6)]) , wgt.matrix[,best])[keep,], digits=3), paste0(opt$score_files,'/',pos$WGT[i],'.SCORE') , quote=F , row.names=F , col.names=F , sep='\t' )
-  		
+
   	  # Write out a snplist for each SCORE file to reduce compution time for scoring
   		system(paste0('cut -f 1 ',opt$score_files,'/',pos$WGT[i],'.SCORE > ',opt$score_files,'/',pos$WGT[i],'.snplist'))
 	  } else {
@@ -313,7 +310,7 @@ if(is.na(opt$score_files)){
 	      if (mod == "top1" ) {
 	        wgt.matrix[-which.max(wgt.matrix[,mod]^2),mod]<-0
 	      }
-	      
+
   	    write.table(format(cbind((snps[,c(2,5,6)]) , wgt.matrix[,mod]),digits=3), paste0(opt$score_files,'/',pos$WGT[i],'.',mod,'.SCORE') , quote=F , row.names=F , col.names=F , sep='\t' )
 	    }
 	    # Write out a snplist for each SCORE file to reduce compution time for scoring
@@ -340,7 +337,7 @@ ref_fam<-ref_fam[,1:2]
 names(ref_fam)<-c('FID','IID')
 
 if(is.na(opt$ref_expr)){
-	
+
 	# Create directory for the PROFILE files
 	system(paste0('mkdir ',opt$output,'/REF_PROFILE_FILES'))
 
@@ -355,9 +352,9 @@ if(is.na(opt$ref_expr)){
 	error_table_all<-NULL
 
 	error_table<-foreach(i=1:length(pos$FILE), .combine=rbind) %dopar% {
-	  
+
 	  if(opt$all_mod == F){
-	    
+
   		# Calculate feature predictions
   		error<-system(paste0(opt$plink,' --bfile ',opt$ref_ld_chr,pos$CHR[i],' --extract ',opt$score_files,'/',pos$WGT[i],'.snplist --allow-no-sex --read-freq ',opt$ref_maf,pos$CHR[i],'.frq --score ',opt$score_files,'/',pos$WGT[i],'.SCORE 1 2 4 --out ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],' --memory ', floor((opt$memory*0.4)/opt$n_cores)),ignore.stdout=T, ignore.stderr=T)
   		# Delete temporary files and extract feature prediction column to reduce disk space
@@ -366,9 +363,9 @@ if(is.na(opt$ref_expr)){
   		system(paste0('rm ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.profile'),ignore.stdout=T, ignore.stderr=T)
   		system(paste0('rm ',opt$output,'/REF_PROFILE_FILES/',pos$WGT[i],'.nosex'),ignore.stdout=T, ignore.stderr=T)
   		data.frame(N=i,Error=error)
-  		
+
 	  } else {
-	    
+
 	    load(pos$FILE[i])
 	    error_tmp<-NULL
 	    for(mod in colnames(wgt.matrix)){
@@ -387,7 +384,7 @@ if(is.na(opt$ref_expr)){
 	  }
 	}
 
-	# Split feature predictions into list of <1000 files, then paste each list of files in batches, and then past all batches. 
+	# Split feature predictions into list of <1000 files, then paste each list of files in batches, and then past all batches.
 	system(paste0("find ", opt$output,"/REF_PROFILE_FILES -type f -name '*.profile_mini' | split -l 1000 -a 4 -d - ",opt$output,"/profile_mini_lists"))
 	system(paste0("echo ", opt$output, "/REF_PROFILE_FILES/REF.IDs | cat - ",opt$output,"/profile_mini_lists0000 > ",opt$output,"/profile_mini_lists0000_temp && mv ",opt$output,"/profile_mini_lists0000_temp ",opt$output,"/profile_mini_lists0000"))
 	tmp<-foreach(k=list.files(path=opt$output, pattern="profile_mini_lists*"), .combine=c) %dopar% {
@@ -474,7 +471,7 @@ if(opt$targ_pred == T){
 	write.table(ref_fam[1,], paste0(opt$output,'/ref_keep'), col.names=F, row.names=F, quote=F)
 	rm(ref_fam)
 	gc()
-	
+
 	foreach(chr=CHROMS, .combine=c) %dopar% {
 		system(paste0(opt$plink,' --bfile ',opt$ref_ld_chr,chr,' --keep ',opt$output,'/ref_keep --make-bed --out ',opt$output,'/ref_indiv_chr',chr,' --memory ', floor((opt$memory*0.4)/opt$n_cores)),ignore.stdout=T, ignore.stderr=T)
 
@@ -486,12 +483,12 @@ if(opt$targ_pred == T){
 		rm(ref_fam)
 		gc()
 	}
-	
+
 
 	###################################
 	# Calculate feature predictions in the target sample
 	###################################
-	
+
 	# Crate a directory to store the predicted expression
 	system(paste0('mkdir ',opt$output,'/TARG_PROFILE_FILES'))
 
@@ -500,15 +497,15 @@ if(opt$targ_pred == T){
 	targ_fam_id<-targ_fam[,1:2]
 	names(targ_fam_id)<-c('FID','IID')
 	write.table(targ_fam_id, paste0(opt$output,'/TARG_PROFILE_FILES/TARG.IDs'), col.names=T, row.names=F, quote=F, sep=' ')
-	
+
 	rm(targ_fam)
 	rm(targ_fam_id)
 	gc()
-	
+
 	# Calculate and process gene expression by chromosome to avoid large memory requirement.
 	for(chr in CHROMS[CHROMS %in% unique(pos$CHR)]){
-			
-		# Create a directory for predicted expression of genes on chromosome 
+
+		# Create a directory for predicted expression of genes on chromosome
 		system(paste0('mkdir ',opt$output,'/TARG_PROFILE_FILES/chr',chr))
 
 	  # Remove any duplicate or 3+ allele variants
@@ -521,7 +518,7 @@ if(opt$targ_pred == T){
 	    log_chr<-unique(gsub("'\\.","",gsub(".*variant '","",log_chr)))
 	    missnp<-c(missnp, log_chr)
 	    write.table(missnp, paste0(opt$output,'/targ_chr',chr,'_noDup.missnp'), col.names=F, row.names=F, quote=F)
-	    
+
 	    # Extract SNPs in reference and flip SNPs if necessary.
 	    # And remove any duplicate 3+ allele variants
 	    system(paste0(opt$plink,' --bfile ',opt$PLINK_prefix_chr,chr,' --make-bed --exclude ',opt$output,'/targ_chr',chr,'_noDup.missnp --out ',opt$output,'/targ_chr',chr,' --memory ',floor((opt$memory*0.4))))
@@ -553,35 +550,35 @@ if(opt$targ_pred == T){
 
 		# Subset features on the chromosome
 		pos_chr<-pos[pos$CHR == chr,]
-		
+
 		# Predict each panel seperately to avoid large files when many panels in one run.
 		for(panel in unique(pos_chr$PANEL)){
-			pos_chr_panel<-pos_chr[pos_chr$PANEL == panel,]	
+			pos_chr_panel<-pos_chr[pos_chr$PANEL == panel,]
 			TARG_expr<-foreach(i=1:length(pos_chr_panel$FILE), .combine=cbind) %dopar% {
 			  if(opt$all_mod == F){
-			    
+
   				# Calculate feature predictions
   				tmp<-system(paste0(opt$plink,' --bfile ',opt$output,'/targ_chr',chr,' --extract ',opt$score_files,'/',pos_chr_panel$WGT[i],'.snplist --allow-no-sex --read-freq ',opt$ref_maf,chr,'.frq --score ',opt$score_files,'/',pos_chr_panel$WGT[i],'.SCORE 1 2 4 --out ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],' --memory ', floor((opt$memory*0.4)/opt$n_cores)),ignore.stdout=T, ignore.stderr=T)
-  
-  				if(tmp != 0){ 
+
+  				if(tmp != 0){
   						# Delete temporary files
   						system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.*'),ignore.stdout=T, ignore.stderr=T)
   						next
   				}
-  				
+
   				# Read in the predictions, extract SCORE column and change header.
   				feature<-fread(paste0(opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.profile'), nThread=1)
   				feature<-feature[,6]
   				names(feature)<-paste0(panel,'.',pos_chr_panel$WGT[i])
-  				
+
   				# Delete temporary files
   				system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.*'),ignore.stdout=T, ignore.stderr=T)
-  				
+
   				# Scale expression to the reference and round
   				feature<-feature-ref_scale$Mean[ref_scale$ID == names(feature)]
   				feature<-feature/ref_scale$SD[ref_scale$ID == names(feature)]
   				feature<-round(feature,3)
-  				
+
   				feature
 			  } else {
 			    load(pos_chr_panel$FILE[i])
@@ -589,21 +586,21 @@ if(opt$targ_pred == T){
 			    for(mod in colnames(wgt.matrix)){
 			      # Calculate feature predictions
 			      tmp<-system(paste0(opt$plink,' --bfile ',opt$output,'/targ_chr',chr,' --extract ',opt$score_files,'/',pos_chr_panel$WGT[i],'.snplist --allow-no-sex --read-freq ',opt$ref_maf,chr,'.frq --score ',opt$score_files,'/',pos_chr_panel$WGT[i],'.',mod,'.SCORE 1 2 4 --out ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.',mod,' --memory ', floor((opt$memory*0.4)/opt$n_cores)),ignore.stdout=T, ignore.stderr=T)
-			      
-			      if(tmp != 0){ 
+
+			      if(tmp != 0){
 			        # Delete temporary files
 			        system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.',mod,'.*'),ignore.stdout=T, ignore.stderr=T)
 			        next
 			      }
-			      
+
 			      # Read in the predictions, extract SCORE column and change header.
 			      feature<-fread(paste0(opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.',mod,'.profile'), nThread=1)
 			      feature<-feature[,6]
 			      names(feature)<-paste0(panel,'.',pos_chr_panel$WGT[i],'.',mod)
-			      
+
 			      # Delete temporary files
 			      system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.',mod,'.*'),ignore.stdout=T, ignore.stderr=T)
-			      
+
 			      # Scale expression to the reference and round
 			      feature<-feature-ref_scale$Mean[ref_scale$ID == names(feature)]
 			      feature<-feature/ref_scale$SD[ref_scale$ID == names(feature)]
@@ -613,31 +610,31 @@ if(opt$targ_pred == T){
 			  feature_tmp
 			  }
 			}
-			
+
 			# Remove any columns containing NA
 			TARG_expr<-TARG_expr[,which(unlist(lapply(TARG_expr, function(x)!is.na(x[1])))),with=F]
-			
+
 			# Save TARG_expr and compress
 			fwrite(TARG_expr, paste0(opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_expression.txt'), nThread = opt$n_cores, sep=' ', na='NA')
 			system(paste0(opt$pigz,' ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_expression.txt'))
-			
-			# Delete TARG_expr and run garbage collection. 
+
+			# Delete TARG_expr and run garbage collection.
 			# Garbage collection turns out to be very important here as memory can spike in subsequent loop.
 			rm(TARG_expr)
 			rm(pos_chr_panel)
 			gc()
 		}
-		
+
 		system(paste0("rm ",opt$output,"/targ_chr",chr,"*"),ignore.stdout=T, ignore.stderr=T)
-		
+
 		sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
 		cat('Done!\n')
 		sink()
-		
+
 		rm(pos_chr)
 		gc()
-	}		
-		
+	}
+
 	# Combine per chromosome predicted expression values and insert FID and IID columns
 	sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
 	cat('Combining per chromomsome files...')
