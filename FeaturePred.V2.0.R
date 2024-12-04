@@ -563,7 +563,7 @@ if(opt$targ_pred == T){
   				if(tmp != 0){
   						# Delete temporary files
   						system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.*'),ignore.stdout=T, ignore.stderr=T)
-  						next
+  						return(NULL)
   				}
 
   				# Read in the predictions, extract SCORE column and change header.
@@ -590,7 +590,7 @@ if(opt$targ_pred == T){
 			      if(tmp != 0){
 			        # Delete temporary files
 			        system(paste0('rm ',opt$output,'/TARG_PROFILE_FILES/chr',chr,'/',panel,'_',pos_chr_panel$WGT[i],'.',mod,'.*'),ignore.stdout=T, ignore.stderr=T)
-			        next
+			        return(NULL)
 			      }
 
 			      # Read in the predictions, extract SCORE column and change header.
