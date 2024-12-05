@@ -20,7 +20,7 @@ make_option("--ref_expr", action="store", default=NA, type='character',
 		help="Path to reference expression data [optional]"),
 make_option("--memory", action="store", default=2000, type='numeric',
 		help="RAM available in MB [required]"),
-make_option("--plink", action="store", default='NA', type='character',
+make_option("--plink", action="store", default=NA, type='character',
 		help="Path to PLINK software [required]"),
 make_option("--save_score", action="store", default='T', type='logical',
 		help="Save SCORE files [optional]"),
@@ -42,15 +42,6 @@ make_option("--chr", action="store", default=NA, type='numeric',
 
 opt = parse_args(OptionParser(option_list=option_list))
 
-if(file.exists(paste0(opt$output,'/FeaturePredictions*.txt.gz'))){
-	cat('Error: A file named',paste0(opt$output,'/FeaturePredictions*.txt.gz'),'already exists.\n')
-	q()
-}
-if(file.exists(paste0(opt$output,'/FeaturePredictions*.txt'))){
-	cat('Error: A file named',paste0(opt$output,'/FeaturePredictions*.txt'),'already exists.\n')
-	q()
-}
-
 system(paste('mkdir -p ',opt$output))
 
 if(is.na(opt$chr)){
@@ -69,34 +60,73 @@ cat(
 Options are:\n')
 print(opt)
 cat('Analysis started at',as.character(start.time),'\n')
+sink()
 
 if(opt$targ_pred == T){
 	if(is.na(opt$PLINK_prefix_chr)){
-		cat('Error: PLINK_prefix_chr has not been specified.\n')
-		q()
+		stop('PLINK_prefix_chr has not been specified.\n')
+	}
+  missing_target_files <- paste0(opt$PLINK_prefix_chr, CHROMS, '.bed')[!file.exists(paste0(opt$PLINK_prefix_chr, CHROMS, '.bed'))]
+  if (length(missing_target_files) > 0) {
+    cat(paste0(missing_target_files, collapse = "\n"), "\n")
+    stop("The following --PLINK_prefix_chr files are missing:", paste0(missing_target_files, collapse= ', '), "\n")
+  }
+}
+
+if(is.na(opt$ref_expr)){
+  if(is.na(opt$ref_ld_chr)){
+    stop('--ref_ld_chr must be specified.')
+  }
+  missing_ref_files <- paste0(opt$ref_ld_chr, CHROMS, '.bed')[!file.exists(paste0(opt$ref_ld_chr, CHROMS, '.bed'))]
+  if (length(missing_ref_files) > 0) {
+    cat(paste0(missing_ref_files, collapse = "\n"), "\n")
+    stop("The following --ref_ld_chr files are missing:", paste0(missing_ref_files, collapse= ', '), "\n")
+  }
+}
+
+if(is.na(opt$weights)){
+  stop('--weights must be specified.')
+}
+if(!file.exists(opt$weights)){
+  stop('--weights files does not exist.')
+}
+
+if(is.na(opt$plink)){
+	stop('--plink must be specified.\n')
+}
+
+plink_error<-system(paste0(opt$plink),ignore.stdout=T, ignore.stderr=T)
+if(plink_error == 127){
+  stop('--plink cannot be found. Check the path for plink software.\n')
+} else {
+	plink_log<-system(paste0(opt$plink,' --help --noweb'),intern=T)
+	if(length(grep('PLINK v1.9',plink_log[1])) == 0) {
+		cat('\nWarning: Check you are using PLINK v1.9!\n\n')
+		system(paste0('rm plink.log'))
 	}
 }
-if(is.na(opt$plink)){
-	cat('Error: --plink must be specified.\n')
-	q()
-} else {
-	plink_error<-system(paste0(opt$plink),ignore.stdout=T, ignore.stderr=T)
-if(plink_error == 127){
-		cat('Error: --plink cannot be found. Check the path for plink software.\n')
-		q()
-		} else {
-			plink_log<-system(paste0(opt$plink,' --help --noweb'),intern=T)
-			if(length(grep('PLINK v1.9',plink_log[1])) == 0) {
-				cat('\nWarning: Check you are using PLINK v1.9!\n\n')
-				system(paste0('rm plink.log'))
-			}
-		}
-}
-sink()
 
-suppressMessages(library(data.table))
-suppressMessages(library(foreach))
-suppressMessages(library(doMC))
+# Check for required frq files
+if(opt$targ_pred == T | is.na(opt$ref_expr)){
+  missing_frq_files <- paste0(opt$ref_maf, CHROMS, '.frq')[!file.exists(paste0(opt$ref_maf, CHROMS, '.frq'))]
+  if (length(missing_frq_files) > 0) {
+    cat(paste0(missing_frq_files, collapse = "\n"), "\n")
+    stop("The following --ref_maf files are missing:", paste0(missing_frq_files, collapse= ', '), "\n")
+  }
+}
+
+if(is.na(opt$pigz)){
+  stop('--pigz must be specified.\n')
+}
+
+pigz_error<-system(paste0(opt$pigz, ' -h'),ignore.stdout=T, ignore.stderr=T)
+if(pigz_error == 127){
+  stop('--pigz cannot be found. Check the path for pigz software.\n')
+}
+
+library(data.table)
+library(foreach)
+library(doMC)
 registerDoMC(opt$n_cores)
 
 ###################################
@@ -291,6 +321,14 @@ if(is.na(opt$score_files)){
 	  snps$V6[snps$V2 %in% flip_list]<-snp_allele_comp(snps$V6[snps$V2 %in% flip_list])
 
 	  if(opt$all_mod == F){
+	    # Remove models with invalid (all NA or invariant weights)
+	    valid_snp_columns <- apply(wgt.matrix, 2, function(col) all(!is.na(col)))
+	    non_invariant_columns <- apply(wgt.matrix, 2, function(col) length(unique(col[!is.na(col)])) > 1)
+	    valid_models <- valid_snp_columns & non_invariant_columns
+	    valid_models <- names(valid_models[valid_models])
+	    
+	    cv.performance<-cv.performance[,colnames(cv.performance) %in% valid_models]
+	    
   	  best = which.min(cv.performance[2,])
 
       if ( names(best) == "top1" ) {
