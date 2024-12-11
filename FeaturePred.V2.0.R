@@ -249,6 +249,9 @@ if(opt$targ_pred == T){
 
 # Read in the .pos file
 pos<-data.frame(fread(opt$weights, nThread=opt$n_cores))
+if(all(names(pos) != 'PANEL')){
+  stop("--weight file does not contain PANEL column.\n")
+}
 pos<-pos[pos$CHR %in% CHROMS,]
 
 sink(file = paste0(opt$output,'/FeaturePredictions.log'), append = T)
@@ -320,15 +323,16 @@ if(is.na(opt$score_files)){
 	  snps$V5[snps$V2 %in% flip_list]<-snp_allele_comp(snps$V5[snps$V2 %in% flip_list])
 	  snps$V6[snps$V2 %in% flip_list]<-snp_allele_comp(snps$V6[snps$V2 %in% flip_list])
 
+	  # Remove models with invalid (all NA or invariant weights)
+	  valid_snp_columns <- apply(wgt.matrix, 2, function(col) all(!is.na(col)))
+	  non_invariant_columns <- apply(wgt.matrix, 2, function(col) length(unique(col[!is.na(col)])) > 1)
+	  valid_models <- valid_snp_columns & non_invariant_columns
+	  valid_models <- names(valid_models[valid_models])
+	  
+	  cv.performance<-cv.performance[,colnames(cv.performance) %in% valid_models]
+	  wgt.matrix<-wgt.matrix[,colnames(wgt.matrix) %in% valid_models]
+	  
 	  if(opt$all_mod == F){
-	    # Remove models with invalid (all NA or invariant weights)
-	    valid_snp_columns <- apply(wgt.matrix, 2, function(col) all(!is.na(col)))
-	    non_invariant_columns <- apply(wgt.matrix, 2, function(col) length(unique(col[!is.na(col)])) > 1)
-	    valid_models <- valid_snp_columns & non_invariant_columns
-	    valid_models <- names(valid_models[valid_models])
-	    
-	    cv.performance<-cv.performance[,colnames(cv.performance) %in% valid_models]
-	    
   	  best = which.min(cv.performance[2,])
 
       if ( names(best) == "top1" ) {
@@ -342,8 +346,6 @@ if(is.na(opt$score_files)){
   	  # Write out a snplist for each SCORE file to reduce compution time for scoring
   		system(paste0('cut -f 1 ',opt$score_files,'/',pos$WGT[i],'.SCORE > ',opt$score_files,'/',pos$WGT[i],'.snplist'))
 	  } else {
-	    load(pos$FILE[i])
-
 	    for(mod in colnames(wgt.matrix)){
 	      if (mod == "top1" ) {
 	        wgt.matrix[-which.max(wgt.matrix[,mod]^2),mod]<-0
@@ -423,13 +425,20 @@ if(is.na(opt$ref_expr)){
 	}
 
 	# Split feature predictions into list of <1000 files, then paste each list of files in batches, and then past all batches.
-	system(paste0("find ", opt$output,"/REF_PROFILE_FILES -type f -name '*.profile_mini' | split -l 1000 -a 4 -d - ",opt$output,"/profile_mini_lists"))
+	system(paste0("find ", opt$output,"/REF_PROFILE_FILES -type f -name '*.profile_mini' | split -l 500 -a 4 -d - ",opt$output,"/profile_mini_lists"))
 	system(paste0("echo ", opt$output, "/REF_PROFILE_FILES/REF.IDs | cat - ",opt$output,"/profile_mini_lists0000 > ",opt$output,"/profile_mini_lists0000_temp && mv ",opt$output,"/profile_mini_lists0000_temp ",opt$output,"/profile_mini_lists0000"))
-	tmp<-foreach(k=list.files(path=opt$output, pattern="profile_mini_lists*"), .combine=c) %dopar% {
-		system(paste0("paste $(cat ",opt$output,"/",k,") > ", opt$output,"/merge_",k))
+	tmp<-foreach(k=list.files(path=opt$output, pattern="^profile_mini_lists*"), .combine=c) %dopar% {
+		exit_status<-system(paste0("paste $(cat ",opt$output,"/",k,") > ", opt$output,"/merge_",k))
+		if(exit_status != 0){
+		  stop()
+		}
 	}
-	system(paste0("paste ", opt$output,"/merge_profile_mini_lists* > ", opt$output,"/REF_expr.txt"))
 
+	exit_status<-system(paste0("paste ", opt$output,"/merge_profile_mini_lists* > ", opt$output,"/REF_expr.txt"))
+	if(exit_status != 0){
+	  stop()
+	}
+	
 	# Delete temporary files
 	system(paste0("rm ",opt$output,'/profile_mini_lists*'))
 	system(paste0("rm ",opt$output,'/merge_profile_mini_lists*'))
