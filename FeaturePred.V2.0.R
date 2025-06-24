@@ -324,7 +324,7 @@ if(is.na(opt$score_files)){
 	  snps$V6[snps$V2 %in% flip_list]<-snp_allele_comp(snps$V6[snps$V2 %in% flip_list])
 
 	  # Remove models with invalid (all NA or invariant weights)
-	  valid_snp_columns <- apply(wgt.matrix, 2, function(col) all(!is.na(col)))
+	  valid_snp_columns <- apply(wgt.matrix, 2, function(col) !all(is.na(col)))
 	  non_invariant_columns <- apply(wgt.matrix, 2, function(col) length(unique(col[!is.na(col)])) > 1)
 	  valid_models <- valid_snp_columns & non_invariant_columns
 	  valid_models <- names(valid_models[valid_models])
@@ -530,7 +530,6 @@ if(opt$targ_pred == T){
 		rm(ref_fam)
 		gc()
 	}
-
 
 	###################################
 	# Calculate feature predictions in the target sample
